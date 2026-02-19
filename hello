@@ -524,6 +524,7 @@ local function startESPProtectionScanner()
             end
             if PlayerESPData and next(PlayerESPData) then hasData = true end
             if activeHighlight or activeAimDot then hasData = true end
+            if selfESPData and (selfESPData.Highlight or selfESPData.Billboard) then hasData = true end
             
             if hasData then
                 pcall(function()
@@ -548,6 +549,12 @@ local function startESPProtectionScanner()
                     if activeHighlight then protectESP(activeHighlight) end
                     if activeAimDot then protectESP(activeAimDot) end
                     if activeAimDotPart then protectESP(activeAimDotPart) end
+                    
+                    -- Protect Self ESP visuals
+                    if selfESPData then
+                        if selfESPData.Highlight then protectESP(selfESPData.Highlight) end
+                        if selfESPData.Billboard then protectESP(selfESPData.Billboard) end
+                    end
                 end)
                 task.wait(15) -- PERFORMANCE: Scan every 15 seconds when active
             else
@@ -1910,7 +1917,7 @@ local Window = WindUI:CreateWindow({
 
     Window:SetIconSize(48)
     Window:Tag({
-        Title = "v4.7",
+        Title = "v4.8",
         Color = Color3.fromHex("#d9ff00") -- deep crimson
     })
     Window:Tag({
@@ -1942,13 +1949,13 @@ local Window = WindUI:CreateWindow({
     })
 
     InfoSection:Paragraph({
-        Title = "Katchi Hub v4.7",
+        Title = "Katchi Hub v4.8",
         Desc = "Professional Guts & BlackPowder Script Hub\nMade by Yuki\nExecutor: "..(identifyexecutor and identifyexecutor() or "Unknown"),
     })
 
     InfoSection:Paragraph({
         Title = "Changelogs",
-        Desc = "Features\n- Added Anti Break Legs!\n\nFixes\n- Fixed Minor Bugs.",
+        Desc = "Features\n- Added Walk Noclip Bypass!\n- Added Background Music!\n- Added Vardohus Fortress Map Hack!\n- Added Saint Petersburg Map Hack!\n- Added FPS Booster!\n- Added Self ESP!\n\nFixes\n- Improved KillAura.\n- Fixed Minor Bugs.\n- Optimized Script.",
     })
 
 -- Make sure this exists somewhere near the top of your script
@@ -1957,7 +1964,7 @@ local HttpService = game:GetService("HttpService")
 -- Discord constants
 local discordInvite = "https://discord.gg/vBYZCGGyK6"
 local widgetUrl = "https://discord.com/api/guilds/1433658537027833969/widget.json"
-local TOTAL_MEMBERS = 652 -- manually keep this roughly updated
+local TOTAL_MEMBERS = 999 -- manually keep this roughly updated
 
 -- Main Discord card
 local DiscordCard = DiscordSection:Paragraph({
@@ -4308,7 +4315,6 @@ task.defer(function()
     while true do
         -- PERFORMANCE: Only run if visualization is enabled
         if BOMBER_VISUALIZE_RADIUS then
-            if _G.KatchiPerf then _G.KatchiPerf.markActive("BomberVis") end
             pcall(updateBomberRadiusVisuals)
             task.wait(0.5) -- Update at normal rate when active
         else
@@ -5730,9 +5736,6 @@ local function startSilentAimLoop()
             silentAimSavedPlayer = nil
             return
         end
-        
-        -- PERFORMANCE: Mark feature as active
-        if _G.KatchiPerf then _G.KatchiPerf.markActive("SilentAim") end
         
         local equippedTool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
         local equippedIsGun = equippedTool and isGun(equippedTool)
@@ -7933,7 +7936,6 @@ end
             ScanAll()
             scanLoop = task.spawn(function()
                 local cleanupCounter = 0
-                local gcCounter = 0
                 while activeCount > 0 do
                     ScanAll()
                     
@@ -7961,28 +7963,21 @@ end
                         end
                     end
                     
-                    -- PERFORMANCE: Trigger garbage collection every 60 scan cycles (~60 seconds)
-                    gcCounter = gcCounter + 1
-                    if gcCounter >= 60 then
-                        gcCounter = 0
-                        pcall(function() collectgarbage("step", 100) end)
-                    end
+                    -- NOTE: manual collectgarbage removed – Luau's incremental GC handles
+                    -- cleanup automatically; forcing a step here caused periodic lag spikes.
                     
                     task.wait(1.0) -- PERFORMANCE: Increased scan interval to 1 second
                 end
             end)
-            -- PERFORMANCE: Use Heartbeat with increased throttle interval
+            -- PERFORMANCE: Use Heartbeat with throttle; camera is cached once per interval
             local lastUpdate = 0
-            local UPDATE_INTERVAL = 0.2 -- PERFORMANCE: Update every 0.2 seconds (5 FPS for ESP)
+            local UPDATE_INTERVAL = 0.1 -- 10 FPS for ESP labels (was 0.2, smoother now)
             renderConn = RunService.Heartbeat:Connect(function()
-                -- PERFORMANCE: Mark ESP as active
-                if _G.KatchiPerf then _G.KatchiPerf.markActive("ESP") end
-                
                 local now = tick()
                 if now - lastUpdate < UPDATE_INTERVAL then return end
                 lastUpdate = now
                 
-                -- PERFORMANCE: Update cached camera position
+                -- Cache camera position once per throttled interval
                 local cam = workspace.CurrentCamera
                 if cam then
                     cachedCameraPos = cam.CFrame.Position
@@ -8338,14 +8333,14 @@ local DEBUG = false
 
 -- Anti-Detection Settings (Balanced: fast but safe)
 local KILLAURA_ANTICHEAT_BYPASS = true -- Enable anti-detection measures
-local KILLAURA_MIN_DELAY = 0.03 -- Minimum delay between attacks (30ms - fast but safe)
+local KILLAURA_MIN_DELAY = 0.025 -- Minimum delay between attacks (25ms - fast but safe)
 local KILLAURA_RANDOMIZE_DELAY = true -- Add random variation to timing
-local KILLAURA_MAX_ATTACKS_PER_SECOND = 30 -- Maximum attacks per second (faster than do.lua)
+local KILLAURA_MAX_ATTACKS_PER_SECOND = 34 -- Maximum attacks per second (faster than do.lua)
 local KILLAURA_ATTACK_COUNTER = 0 -- Track attacks this second
 local KILLAURA_LAST_SECOND = 0 -- Track which second we're in
 local KILLAURA_VALIDATE_DISTANCE = false -- Disabled for better range
 local KILLAURA_MAX_REALISTIC_RANGE = 30 -- Maximum melee range (studs)
-local KILLAURA_SWING_TO_HIT_DELAY = 0.02 -- Delay between Swing and HitZombie (20ms - minimal but present)
+local KILLAURA_SWING_TO_HIT_DELAY = 0.018 -- Delay between Swing and HitZombie (18ms - minimal but present)
 
 -- State variables (Global for keybind access)
 KillAuraEnabled = false
@@ -8527,32 +8522,25 @@ local function KillAura_ScanRemotesNow()
 end
 
 -- Debounce remote scanning to prevent lag when spamming equip/unequip
--- PERFORMANCE: Increased debounce to 0.3s to reduce scan frequency on rapid equip/unequip
 local KillAura_scanDebounce = false
 local function KillAura_DebouncedScan()
     if KillAura_scanDebounce then return end
     KillAura_scanDebounce = true
-    task.delay(0.3, function()
+    task.delay(0.15, function()
         KillAura_scanDebounce = false
         KillAura_ScanRemotesNow()
     end)
 end
 
--- Track ChildAdded connections so they're cleaned up on respawn (prevents accumulation)
-local KillAura_charChildConns = {}
 LocalPlayer.CharacterAdded:Connect(function(char)
-    -- Disconnect old character connections
-    for _, c in ipairs(KillAura_charChildConns) do pcall(function() c:Disconnect() end) end
-    KillAura_charChildConns = {}
     task.wait(0.6)
     KillAura_ScanRemotesNow()
-    local addConn = char.ChildAdded:Connect(function(child)
+    char.ChildAdded:Connect(function(child)
         if child:IsA("Tool") then KillAura_DebouncedScan() end
     end)
-    local removeConn = char.ChildRemoved:Connect(function(child)
+    char.ChildRemoved:Connect(function(child)
         if child:IsA("Tool") then KillAura_DebouncedScan() end
     end)
-    KillAura_charChildConns = {addConn, removeConn}
 end)
 if LocalPlayer.Character then KillAura_ScanRemotesNow() end
 
@@ -11006,20 +10994,13 @@ local function PerformShoveHitboxExpander()
 end
 
 -- Animation detection callback
--- PERFORMANCE: Debounce to prevent multiple fires from overlapping animations
-local shoveAnimLastFire = 0
-local SHOVE_ANIM_COOLDOWN = 0.15 -- Minimum time between shove hitbox fires
 local function OnShoveAnimationPlayed(track)
     if not ShoveHitboxExpanderEnabled then return end
     if not track then return end
     
     -- Check if this is a shove animation
     if IsShoveAnimation(track) then
-        -- Debounce: don't fire if we just fired recently
-        local now = tick()
-        if now - shoveAnimLastFire < SHOVE_ANIM_COOLDOWN then return end
-        shoveAnimLastFire = now
-        -- Fire extended shove
+        -- Fire extended shove immediately
         task.spawn(function()
             PerformShoveHitboxExpander()
         end)
@@ -11728,34 +11709,27 @@ do -- // Dracula (New) — auto melee remote scanner + robust ESP (Dracula + Sil
     end
 
     -- Debounce remote scanning to prevent lag when spamming equip/unequip
-    -- PERFORMANCE: Staggered delay (0.35s) so it doesn't overlap with KillAura scan (0.15s)
     local Dracula_scanDebounce = false
     local function Dracula_DebouncedScan()
         if Dracula_scanDebounce then return end
         Dracula_scanDebounce = true
-        task.delay(0.35, function()
+        task.delay(0.15, function()
             Dracula_scanDebounce = false
             ScanDraculaRemotes()
         end)
     end
     
     -- initial scan + hooks
-    -- Track ChildAdded connections so they're cleaned up on respawn (prevents accumulation)
-    local Dracula_charChildConns = {}
     if LocalPlayer.Character then ScanDraculaRemotes() end
     LocalPlayer.CharacterAdded:Connect(function(char)
-        -- Disconnect old character connections
-        for _, c in ipairs(Dracula_charChildConns) do pcall(function() c:Disconnect() end) end
-        Dracula_charChildConns = {}
         task.wait(0.5)
         ScanDraculaRemotes()
-        local addConn = char.ChildAdded:Connect(function(c)
+        char.ChildAdded:Connect(function(c)
             if c and c:IsA("Tool") then Dracula_DebouncedScan() end
         end)
-        local removeConn = char.ChildRemoved:Connect(function(c)
+        char.ChildRemoved:Connect(function(c)
             if c and c:IsA("Tool") then Dracula_DebouncedScan() end
         end)
-        Dracula_charChildConns = {addConn, removeConn}
     end)
 
     -- background auto-scan (always on, deferred)
@@ -12448,6 +12422,23 @@ do -- // Players Tab
         end
     end
 
+    -- Pre-built Color3 constants – avoids allocating new Color3 objects every update tick
+    local C3_BLACK          = Color3.fromRGB(0, 0, 0)
+    local C3_WHITE          = Color3.fromRGB(255, 255, 255)
+    local C3_MERCY_HI       = Color3.fromRGB(120, 0, 120)
+    local C3_MERCY_LO       = Color3.fromRGB(80, 0, 80)
+    local C3_MERCY_FILL_HI  = Color3.fromRGB(180, 0, 180)
+    local C3_MERCY_FILL_LO  = Color3.fromRGB(110, 0, 110)
+    local C3_MERCY_OUTLINE  = Color3.fromRGB(255, 200, 255)
+    local C3_GRAB_HI        = Color3.fromRGB(200, 30, 30)
+    local C3_GRAB_LO        = Color3.fromRGB(120, 10, 10)
+    local C3_GRAB_FILL_HI   = Color3.fromRGB(255, 0, 0)
+    local C3_GRAB_FILL_LO   = Color3.fromRGB(200, 0, 0)
+    local C3_GRAB_OUTLINE   = Color3.fromRGB(255, 100, 100)
+
+    -- Per-player health-gradient cache: skip Color3.fromRGB when pct hasn't changed enough
+    local playerHealthPctCache = setmetatable({}, { __mode = "k" })
+
     local function UpdateESPLoop()
         if not (ChamsESPEnabled or BillboardESPEnabled) then return end
         local localChar = LocalPlayer and LocalPlayer.Character
@@ -12622,13 +12613,8 @@ do -- // Players Tab
                         data.StatusBg.Size = UDim2.new(0.9, 0, 0.36, 0)
                         data.StatusBg.Position = UDim2.new(0.05, 0, 0.30, 0)
                         data.StatusBg.Visible = true
-                        -- purple-ish background for mercy
-                        local pulse = math.sin(now * 6)
-                        if pulse > 0 then
-                            data.StatusBg.BackgroundColor3 = Color3.fromRGB(120, 0, 120)
-                        else
-                            data.StatusBg.BackgroundColor3 = Color3.fromRGB(80, 0, 80)
-                        end
+                        -- purple-ish background for mercy (pre-built constants)
+                        data.StatusBg.BackgroundColor3 = math.sin(now * 6) > 0 and C3_MERCY_HI or C3_MERCY_LO
                     end
 
                     data.StatusLabel.Text = "MERCY"
@@ -12649,19 +12635,15 @@ do -- // Players Tab
                         data.InfectInner.Size = UDim2.new(infectPercent, 0, 1, 0)
                     end
 
-                    -- change chams color to purple pulse when mercy
+                    -- change chams color to purple pulse when mercy (pre-built constants)
                     if ChamsESPEnabled and data.Highlight then
                         local pulse = math.sin(now * 6)
-                        if pulse > 0 then
-                            data.Highlight.FillColor = Color3.fromRGB(180, 0, 180)
-                        else
-                            data.Highlight.FillColor = Color3.fromRGB(110, 0, 110)
-                        end
+                        data.Highlight.FillColor = pulse > 0 and C3_MERCY_FILL_HI or C3_MERCY_FILL_LO
                         data.Highlight.FillTransparency = math.clamp(
                             ChamsFillTransparency + 0.2 * math.abs(math.sin(now * 8)),
                             0, 1
                         )
-                        data.Highlight.OutlineColor = Color3.fromRGB(255, 200, 255)
+                        data.Highlight.OutlineColor = C3_MERCY_OUTLINE
                     end
 
                 elseif NotifyGrabbedPinnedEnabled and isGrabbedPinned then
@@ -12670,13 +12652,8 @@ do -- // Players Tab
                         data.StatusBg.Size = UDim2.new(1, 0, 1, 0)
                         data.StatusBg.Position = UDim2.new(0, 0, 0, 0)
                         data.StatusBg.Visible = true
-                        -- red pulsing background for grabbed/pinned
-                        local pulse = math.sin(now * 10)
-                        if pulse > 0 then
-                            data.StatusBg.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
-                        else
-                            data.StatusBg.BackgroundColor3 = Color3.fromRGB(120, 10, 10)
-                        end
+                        -- red pulsing background for grabbed/pinned (pre-built constants)
+                        data.StatusBg.BackgroundColor3 = math.sin(now * 10) > 0 and C3_GRAB_HI or C3_GRAB_LO
                     end
 
                     if data.StatusLabel then
@@ -12694,15 +12671,15 @@ do -- // Players Tab
                     if data.HealthInner then data.HealthInner.Size = UDim2.new(0,0,1,0) end
                     if data.InfectInner then data.InfectInner.Size = UDim2.new(0,0,1,0) end
 
-                    -- Change chams color to flashing red
+                    -- Change chams color to flashing red (pre-built constants)
                     if ChamsESPEnabled and data.Highlight then
                         local pulse = math.sin(now * 10)
-                        data.Highlight.FillColor = pulse > 0 and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(200, 0, 0)
+                        data.Highlight.FillColor = pulse > 0 and C3_GRAB_FILL_HI or C3_GRAB_FILL_LO
                         data.Highlight.FillTransparency = math.clamp(
                             ChamsFillTransparency + 0.2 * math.abs(math.sin(now * 8)),
                             0, 1
                         )
-                        data.Highlight.OutlineColor = Color3.fromRGB(255, 100, 100)
+                        data.Highlight.OutlineColor = C3_GRAB_OUTLINE
                     end
                 else
                     -- Restore normal view
@@ -12713,34 +12690,31 @@ do -- // Players Tab
                     if data.InfectOuter then data.InfectOuter.Visible = ShowInfectionBarEnabled end
                     if data.DistanceLabel then data.DistanceLabel.Visible = true end
                     
-                    -- Restore background color (actual visibility controlled by BackgroundTransparency)
-                    if data.ESPFrame then
-                        data.ESPFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-                    end
+                    -- ESPFrame BackgroundColor3 is always black – no need to reset it every frame
 
-                    -- Restore normal chams
+                    -- Restore normal chams (skip gradient write if health hasn't moved >1%)
                     if ChamsESPEnabled and data.Highlight then
-                        -- Team ESP: use team color if enabled
-                        if _G._PlayerESP_TeamESPEnabled and _G._PlayerESP_getTeamColor then
-                            local tc = _G._PlayerESP_getTeamColor(player)
-                            if tc then
-                                data.Highlight.FillColor = tc
-                                data.Highlight.OutlineColor = tc
-                                data.Highlight.FillTransparency = ChamsFillTransparency
-                            else
-                                -- No team, fall back to health color
-                                local r = math.floor(255 * (1 - percent))
-                                local g = math.floor(255 * percent)
-                                data.Highlight.FillColor = Color3.fromRGB(r, g, 0)
-                                data.Highlight.FillTransparency = ChamsFillTransparency
-                                data.Highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                            end
-                        else
+                        local cachedPct = playerHealthPctCache[player] or -1
+                        if math.abs(percent - cachedPct) >= 0.01 then
+                            playerHealthPctCache[player] = percent
                             local r = math.floor(255 * (1 - percent))
                             local g = math.floor(255 * percent)
-                            data.Highlight.FillColor = Color3.fromRGB(r, g, 0)
+                            local healthColor = Color3.fromRGB(r, g, 0)
+                            -- Team ESP: use team color if enabled
+                            if _G._PlayerESP_TeamESPEnabled and _G._PlayerESP_getTeamColor then
+                                local tc = _G._PlayerESP_getTeamColor(player)
+                                if tc then
+                                    data.Highlight.FillColor = tc
+                                    data.Highlight.OutlineColor = tc
+                                else
+                                    data.Highlight.FillColor = healthColor
+                                    data.Highlight.OutlineColor = C3_WHITE
+                                end
+                            else
+                                data.Highlight.FillColor = healthColor
+                                data.Highlight.OutlineColor = C3_WHITE
+                            end
                             data.Highlight.FillTransparency = ChamsFillTransparency
-                            data.Highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
                         end
                     end
                 end  -- ✅ this is the missing one (closes isMercy / elseif / else)
@@ -12788,15 +12762,20 @@ do -- // Players Tab
 
                         -- Health bar update (hide when grabbed/pinned or mercy)
                         if data.HealthOuter and data.HealthInner and ShowHealthBarEnabled and (not isGrabbedPinned) and (not isMercy) then
-                            -- compute percent from hum values
-                            local healthPercent = percent -- already computed earlier as health/max
-                            -- Set inner fill width (use UDim2 scale)
+                            local healthPercent = percent
                             data.HealthInner.Size = UDim2.new(healthPercent, 0, 1, 0)
-                            -- Color gradient (green->red)
-                            local healthR = math.floor(255 * (1 - healthPercent))
-                            local healthG = math.floor(255 * healthPercent)
-                            data.HealthInner.BackgroundColor3 = Color3.fromRGB(healthR, healthG, 0)
-                            -- Update label text
+                            -- Only recompute gradient color if health changed enough
+                            local cachedPct2 = (playerHealthPctCache[player] or -1)
+                            if math.abs(healthPercent - cachedPct2) >= 0.01 then
+                                local healthR = math.floor(255 * (1 - healthPercent))
+                                local healthG = math.floor(255 * healthPercent)
+                                data.HealthInner.BackgroundColor3 = Color3.fromRGB(healthR, healthG, 0)
+                                -- Note: playerHealthPctCache is updated in the chams block above;
+                                -- if chams are off we still need to update it here.
+                                if not (ChamsESPEnabled and data.Highlight) then
+                                    playerHealthPctCache[player] = healthPercent
+                                end
+                            end
                             if data.HealthLabelInside then
                                 data.HealthLabelInside.Text = math.floor(health) .. "/" .. math.floor(max)
                                 data.HealthLabelInside.TextSize = math.max(baseTextSize - 2, 8)
@@ -12812,9 +12791,14 @@ do -- // Players Tab
                         if data.InfectOuter and data.InfectInner and ShowInfectionBarEnabled and (not isGrabbedPinned) then
                             local infectPercent = math.clamp((infectionLevel or 0) / 100, 0, 1)
                             data.InfectInner.Size = UDim2.new(infectPercent, 0, 1, 0)
-                            local infectR = math.floor(255 * infectPercent)
-                            local infectG = math.floor(255 * (1 - infectPercent))
-                            data.InfectInner.BackgroundColor3 = Color3.fromRGB(infectR, infectG, 0)
+                            -- Only recompute if infection changed meaningfully
+                            local cachedInfect = data._lastInfectPct or -1
+                            if math.abs(infectPercent - cachedInfect) >= 0.01 then
+                                data._lastInfectPct = infectPercent
+                                local infectR = math.floor(255 * infectPercent)
+                                local infectG = math.floor(255 * (1 - infectPercent))
+                                data.InfectInner.BackgroundColor3 = Color3.fromRGB(infectR, infectG, 0)
+                            end
                             if data.InfectLabelInside then
                                 data.InfectLabelInside.Text = math.floor(infectionLevel) .. "/100"
                                 data.InfectLabelInside.TextSize = math.max(baseTextSize - 2, 8)
@@ -13013,6 +12997,281 @@ do -- // Players Tab
             end
         end
     })
+
+    -- ===== SELF ESP SECTION =====
+    local SelfESPSection = PlayersTab:Section({
+        Title = "Self ESP",
+        Icon = "user",
+        Opened = false
+    })
+    
+    local SelfESPEnabled = false
+    local SelfBillboardEnabled = false
+    local SelfNoBillboardBg = false
+    local selfESPData = {}
+    
+    local function RemoveSelfESP()
+        if selfESPData.Highlight then
+            pcall(function() selfESPData.Highlight:Destroy() end)
+            selfESPData.Highlight = nil
+        end
+        if selfESPData.Billboard then
+            pcall(function() selfESPData.Billboard:Destroy() end)
+            selfESPData.Billboard = nil
+        end
+    end
+    
+    local function CreateSelfESP()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local head = char:FindFirstChild("Head")
+        if not head then return end
+        
+        RemoveSelfESP()
+        
+        -- Create Highlight (Chams)
+        if SelfESPEnabled then
+            local hl = Instance.new("Highlight")
+            hl.Name = _G.getRandomInstanceName and _G.getRandomInstanceName() or ("HL_Self_" .. math.random(10000, 99999))
+            hl.Adornee = char
+            hl.FillColor = Color3.fromRGB(0, 200, 255) -- Cyan for self
+            hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+            hl.FillTransparency = 0.45
+            hl.OutlineTransparency = 0
+            hl.Parent = char
+            selfESPData.Highlight = hl
+            
+            pcall(function()
+                if _G.protectESP then _G.protectESP(hl) end
+            end)
+        end
+        
+        -- Create Billboard (matching Player ESP style)
+        if SelfBillboardEnabled then
+            local bb = Instance.new("BillboardGui")
+            bb.Name = _G.getRandomInstanceName and _G.getRandomInstanceName() or ("BB_Self_" .. math.random(10000, 99999))
+            bb.Adornee = head
+            bb.Size = UDim2.new(0, 160, 0, 72)
+            bb.StudsOffset = Vector3.new(0, 3, 0)
+            bb.AlwaysOnTop = true
+            bb.LightInfluence = 0
+            bb.MaxDistance = 150
+            bb.Parent = head
+            selfESPData.Billboard = bb
+
+            local espFrame = Instance.new("Frame")
+            espFrame.Name = "Frame_" .. math.random(10000, 99999)
+            espFrame.Size = UDim2.new(1, 0, 1, 0)
+            espFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            espFrame.BackgroundTransparency = SelfNoBillboardBg and 1 or 0.6
+            espFrame.BorderSizePixel = 0
+            espFrame.Parent = bb
+            selfESPData.ESPFrame = espFrame
+
+            local uiCorner = Instance.new("UICorner")
+            uiCorner.CornerRadius = UDim.new(0, 8)
+            uiCorner.Parent = espFrame
+
+            -- Name label
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Name = "Name"
+            nameLabel.Text = LocalPlayer.Name
+            nameLabel.Size = UDim2.new(1, 0, 0.22, 0)
+            nameLabel.Position = UDim2.new(0, 0, 0.04, 0)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
+            nameLabel.TextStrokeTransparency = 0.5
+            nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+            nameLabel.TextSize = 16
+            nameLabel.Font = Enum.Font.SourceSansBold
+            nameLabel.TextWrapped = true
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Center
+            nameLabel.Parent = espFrame
+
+            -- (YOU) label below name
+            local youLabel = Instance.new("TextLabel")
+            youLabel.Name = "YouLabel"
+            youLabel.Text = "(YOU)"
+            youLabel.Size = UDim2.new(1, 0, 0.18, 0)
+            youLabel.Position = UDim2.new(0, 0, 0.27, 0)
+            youLabel.BackgroundTransparency = 1
+            youLabel.TextColor3 = Color3.fromRGB(180, 255, 255)
+            youLabel.TextStrokeTransparency = 0.5
+            youLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+            youLabel.TextSize = 13
+            youLabel.Font = Enum.Font.SourceSans
+            youLabel.TextWrapped = true
+            youLabel.TextXAlignment = Enum.TextXAlignment.Center
+            youLabel.Parent = espFrame
+
+            -- Health BAR outer (matches Player ESP healthOuter)
+            local healthOuter = Instance.new("Frame")
+            healthOuter.Name = "HealthOuter"
+            healthOuter.Size = UDim2.new(0.9, 0, 0.18, 0)
+            healthOuter.Position = UDim2.new(0.05, 0, 0.54, 0)
+            healthOuter.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            healthOuter.BorderSizePixel = 0
+            healthOuter.Parent = espFrame
+
+            local healthOuterCorner = Instance.new("UICorner")
+            healthOuterCorner.CornerRadius = UDim.new(0, 6)
+            healthOuterCorner.Parent = healthOuter
+
+            local healthInner = Instance.new("Frame")
+            healthInner.Name = "HealthInner"
+            healthInner.Size = UDim2.new(1, 0, 1, 0)
+            healthInner.Position = UDim2.new(0, 0, 0, 0)
+            healthInner.BorderSizePixel = 0
+            healthInner.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+            healthInner.Parent = healthOuter
+
+            local healthInnerCorner = Instance.new("UICorner")
+            healthInnerCorner.CornerRadius = UDim.new(0, 6)
+            healthInnerCorner.Parent = healthInner
+
+            -- Health label inside bar (matches Player ESP healthLabelInside)
+            local healthLabel = Instance.new("TextLabel")
+            healthLabel.Name = "HealthLabelInside"
+            healthLabel.Text = "100/100"
+            healthLabel.Size = UDim2.new(1, 0, 1, 0)
+            healthLabel.Position = UDim2.new(0, 0, 0, 0)
+            healthLabel.BackgroundTransparency = 1
+            healthLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            healthLabel.TextStrokeTransparency = 0.6
+            healthLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+            healthLabel.TextSize = 12
+            healthLabel.Font = Enum.Font.SourceSansBold
+            healthLabel.TextWrapped = false
+            healthLabel.TextXAlignment = Enum.TextXAlignment.Center
+            healthLabel.TextYAlignment = Enum.TextYAlignment.Center
+            healthLabel.Parent = healthOuter
+            selfESPData.HealthLabel = healthLabel
+            selfESPData.HealthInner = healthInner
+
+            pcall(function()
+                if _G.protectESP then _G.protectESP(bb) end
+            end)
+        end
+    end
+    
+    -- Update self health display (event-driven: no polling loop, no redundant writes)
+    local selfHealthConn = nil
+    local selfLastHealthPct = -1 -- cached to skip redundant Color3/Size writes
+
+    local COLOR_GREEN  = Color3.fromRGB(0, 255, 0)
+    local COLOR_YELLOW = Color3.fromRGB(255, 255, 0)
+    local COLOR_RED    = Color3.fromRGB(255, 0, 0)
+    local COLOR_WHITE  = Color3.fromRGB(255, 255, 255)
+
+    local function UpdateSelfHealth(hum)
+        if not SelfBillboardEnabled then return end
+        if not selfESPData.HealthLabel then return end
+        local health    = math.floor(hum.Health)
+        local maxHealth = math.floor(hum.MaxHealth)
+        local pct       = math.clamp(hum.Health / math.max(maxHealth, 1), 0, 1)
+        -- skip write if nothing changed (avoids layout recalcs every frame)
+        if math.abs(pct - selfLastHealthPct) < 0.005 then return end
+        selfLastHealthPct = pct
+        selfESPData.HealthLabel.Text = health .. "/" .. maxHealth
+        if selfESPData.HealthInner then
+            selfESPData.HealthInner.Size = UDim2.new(pct, 0, 1, 0)
+            selfESPData.HealthInner.BackgroundColor3 = pct > 0.5 and COLOR_GREEN or pct > 0.25 and COLOR_YELLOW or COLOR_RED
+        end
+        selfESPData.HealthLabel.TextColor3 = COLOR_WHITE
+    end
+
+    local function BindSelfHealthEvents()
+        if selfHealthConn then selfHealthConn:Disconnect(); selfHealthConn = nil end
+        local char = LocalPlayer.Character
+        local hum  = char and char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            UpdateSelfHealth(hum) -- immediate refresh
+            selfHealthConn = hum.HealthChanged:Connect(function()
+                UpdateSelfHealth(hum)
+            end)
+        end
+    end
+
+    -- Bind now for the current character, and re-bind on respawn
+    BindSelfHealthEvents()
+    LocalPlayer.CharacterAdded:Connect(function(char)
+        selfLastHealthPct = -1
+        -- wait for Humanoid to exist before binding
+        local hum = char:WaitForChild("Humanoid", 10)
+        if hum then BindSelfHealthEvents() end
+    end)
+    
+    SelfESPSection:Toggle({
+        Title = "Self Highlight ESP",
+        Flag = "Self_Highlight",
+        Desc = "Show cyan highlight on yourself",
+        Default = false,
+        Callback = function(state)
+            SelfESPEnabled = state
+            if state then
+                CreateSelfESP()
+                WindUI:Notify({
+                    Title = "Self ESP",
+                    Content = "Self Highlight enabled",
+                    Duration = 2,
+                    Icon = "user"
+                })
+            else
+                if selfESPData.Highlight then
+                    pcall(function() selfESPData.Highlight:Destroy() end)
+                    selfESPData.Highlight = nil
+                end
+            end
+        end
+    })
+    
+    SelfESPSection:Toggle({
+        Title = "Self Billboard ESP",
+        Flag = "Self_Billboard",
+        Desc = "Show billboard with your name and health",
+        Default = false,
+        Callback = function(state)
+            SelfBillboardEnabled = state
+            if state then
+                CreateSelfESP()
+                WindUI:Notify({
+                    Title = "Self ESP",
+                    Content = "Self Billboard enabled",
+                    Duration = 2,
+                    Icon = "user"
+                })
+            else
+                if selfESPData.Billboard then
+                    pcall(function() selfESPData.Billboard:Destroy() end)
+                    selfESPData.Billboard = nil
+                    selfESPData.HealthLabel = nil
+                end
+            end
+        end
+    })
+
+    SelfESPSection:Toggle({
+        Title = "No Billboard Background",
+        Flag = "Self_NoBillboardBg",
+        Desc = "Removes the dark background from your self billboard",
+        Default = false,
+        Callback = function(state)
+            SelfNoBillboardBg = state
+            if selfESPData.ESPFrame then
+                selfESPData.ESPFrame.BackgroundTransparency = state and 1 or 0.6
+            end
+        end
+    })
+    
+    -- Recreate visuals on respawn (health event binding handled above)
+    LocalPlayer.CharacterAdded:Connect(function()
+        task.wait(1) -- Wait for character to fully load
+        if SelfESPEnabled or SelfBillboardEnabled then
+            CreateSelfESP()
+        end
+    end)
+    
+    -- ===== END SELF ESP SECTION =====
 
     -- Settings section (renamed from Grabbed & Pinned)
     local SettingsSection = PlayersTab:Section({
@@ -13323,6 +13582,8 @@ do -- // Headless Horseman Tab
     end
 
     -- Robust finder for the HeadlessHorseman model / hitbox
+    -- PERF: GetDescendants() on Workspace is very expensive (~3-10ms per call).
+    --       Results are cached for HEADLESS_CHECK_INTERVAL so it never runs per-frame.
     local function findHeadlessBossModel()
         local rootNames = {"Sleepy Hollow", "SleepyHollow", "Sleepy_Hollow"}
         for _, rn in ipairs(rootNames) do
@@ -13343,7 +13604,12 @@ do -- // Headless Horseman Tab
             end
         end
 
-        for _, desc in pairs(Workspace:GetDescendants()) do
+        -- PERF: GetDescendants is only reached as a last resort; it is guarded by the
+        --       0.5-second HEADLESS_CHECK_INTERVAL cache in the Heartbeat, so it will
+        --       never be called more than ~2×/sec even in the worst case.
+        local zombiesFolder = Workspace:FindFirstChild("Zombies")
+        local searchRoot = zombiesFolder or Workspace
+        for _, desc in ipairs(searchRoot:GetDescendants()) do
             if desc:IsA("Model") and desc:FindFirstChild("ZOMBIE_HITBOX") then
                 return desc
             end
@@ -16514,6 +16780,286 @@ do
             WindUI:Notify({ Title = "Cleared", Content = "All saved positions deleted", Duration = 2, Icon = "trash-2" })
         end
     })
+
+    -- === BACKGROUND MUSIC SYSTEM (Game Audio Scanner) ===
+    local BackgroundMusicSection = MiscTab:Section({ Title = "Background Music", Icon = "music", Opened = false })
+    
+    -- Music system variables
+    local currentMusicSound = nil
+    local musicEnabled = false
+    local musicVolume = 0.5
+    local scannedAudioList = {}
+    local musicDropdown = nil
+    local musicSearchQuery = ""
+    local audioNameToData = {} -- Lookup table
+    local selectedAudioData = nil
+    
+    -- Function to create/get sound instance
+    local function getMusicSound()
+        if not currentMusicSound or not currentMusicSound.Parent then
+            currentMusicSound = Instance.new("Sound")
+            currentMusicSound.Name = "BackgroundMusic_Katchi"
+            currentMusicSound.Parent = game:GetService("SoundService")
+            currentMusicSound.Looped = true
+            currentMusicSound.Volume = musicVolume
+        end
+        return currentMusicSound
+    end
+    
+    -- Function to extract audio ID
+    local function extractAudioId(soundIdString)
+        if not soundIdString or soundIdString == "" then return nil end
+        local id = string.match(soundIdString, "rbxassetid://(%d+)")
+        if id then return tonumber(id) end
+        id = string.match(soundIdString, "^(%d+)$")
+        if id then return tonumber(id) end
+        return nil
+    end
+    
+    -- Get dropdown values
+    local function getMusicDropdownValues(audioList)
+        local values = {}
+        audioNameToData = {}
+        for i, audio in ipairs(audioList) do
+            local displayName = audio.name .. " (ID: " .. audio.id .. ")"
+            table.insert(values, displayName)
+            audioNameToData[displayName] = audio
+        end
+        if #values == 0 then
+            values = {"No audio found"}
+        end
+        return values
+    end
+    
+    -- Filter audio
+    local function filterAudio(query)
+        if not query or query == "" then return scannedAudioList end
+        local filtered = {}
+        local lowerQuery = string.lower(query)
+        for _, audio in ipairs(scannedAudioList) do
+            local lowerName = string.lower(audio.name)
+            local idStr = tostring(audio.id)
+            if string.find(lowerName, lowerQuery, 1, true) or string.find(idStr, query, 1, true) then
+                table.insert(filtered, audio)
+            end
+        end
+        return filtered
+    end
+    
+    -- Scan for audio
+    local function scanGameAudio()
+        scannedAudioList = {}
+        local foundSounds = {}
+        pcall(function()
+            for _, sound in pairs(workspace:GetDescendants()) do
+                if sound:IsA("Sound") and sound.SoundId ~= "" then
+                    local audioId = extractAudioId(sound.SoundId)
+                    if audioId and not foundSounds[audioId] then
+                        foundSounds[audioId] = true
+                        table.insert(scannedAudioList, {name = sound.Name, id = audioId, location = sound:GetFullName()})
+                    end
+                end
+            end
+            for _, sound in pairs(game:GetService("SoundService"):GetDescendants()) do
+                if sound:IsA("Sound") and sound.SoundId ~= "" then
+                    local audioId = extractAudioId(sound.SoundId)
+                    if audioId and not foundSounds[audioId] then
+                        foundSounds[audioId] = true
+                        table.insert(scannedAudioList, {name = sound.Name, id = audioId, location = sound:GetFullName()})
+                    end
+                end
+            end
+            pcall(function()
+                for _, sound in pairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
+                    if sound:IsA("Sound") and sound.SoundId ~= "" then
+                        local audioId = extractAudioId(sound.SoundId)
+                        if audioId and not foundSounds[audioId] then
+                            foundSounds[audioId] = true
+                            table.insert(scannedAudioList, {name = sound.Name, id = audioId, location = sound:GetFullName()})
+                        end
+                    end
+                end
+            end)
+        end)
+        return #scannedAudioList
+    end
+    
+    -- Play music
+    local function playMusic(audioData)
+        if not audioData then return end
+        pcall(function()
+            local sound = getMusicSound()
+            sound.SoundId = "rbxassetid://" .. audioData.id
+            sound.Volume = musicVolume
+            sound:Play()
+            selectedAudioData = audioData
+            WindUI:Notify({Title = "Background Music", Content = "Playing: " .. audioData.name, Duration = 2, Icon = "music"})
+        end)
+    end
+    
+    -- Stop music
+    local function stopMusic()
+        if currentMusicSound and currentMusicSound.Parent then
+            currentMusicSound:Stop()
+        end
+    end
+    
+    -- Update volume
+    local function updateVolume(volume)
+        musicVolume = volume
+        if currentMusicSound and currentMusicSound.Parent then
+            currentMusicSound.Volume = volume
+        end
+    end
+    
+    -- Cleanup
+    local function cleanupMusic()
+        stopMusic()
+        if currentMusicSound and currentMusicSound.Parent then
+            currentMusicSound:Destroy()
+            currentMusicSound = nil
+        end
+    end
+    
+    -- Info
+    BackgroundMusicSection:Paragraph({
+        Title = "How to Use",
+        Desc = "Click 'Scan Game Audio' to load (prevents lag on startup)"
+    })
+    
+    -- Scan button
+    BackgroundMusicSection:Button({
+        Title = "Scan Game Audio",
+        Desc = "Scan game for music/sounds (runs in background)",
+        Callback = function()
+            WindUI:Notify({Title = "Background Music", Content = "Scanning...", Duration = 2, Icon = "search"})
+            task.spawn(function()
+                local count = scanGameAudio()
+                if musicDropdown then
+                    pcall(function()
+                        local values = getMusicDropdownValues(filterAudio(musicSearchQuery))
+                        if musicDropdown.SetValues then
+                            musicDropdown:SetValues(values)
+                        elseif musicDropdown.Refresh then
+                            musicDropdown:Refresh(values)
+                        end
+                    end)
+                end
+                WindUI:Notify({Title = "Background Music", Content = "Found " .. count .. " audio files!", Duration = 3, Icon = "check"})
+            end)
+        end
+    })
+    
+    -- Search
+    BackgroundMusicSection:Input({
+        Title = "Search Audio",
+        Desc = "Filter audio by name or ID",
+        Placeholder = "Type to search...",
+        Callback = function(text)
+            musicSearchQuery = text
+            local filtered = filterAudio(text)
+            if musicDropdown then
+                pcall(function()
+                    if musicDropdown.SetValues then
+                        musicDropdown:SetValues(getMusicDropdownValues(filtered))
+                    elseif musicDropdown.Refresh then
+                        musicDropdown:Refresh(getMusicDropdownValues(filtered))
+                    end
+                end)
+            end
+        end
+    })
+    
+    -- Dropdown
+    musicDropdown = BackgroundMusicSection:Dropdown({
+        Title = "Select Audio",
+        Desc = "Choose audio to play",
+        Flag = "BackgroundMusic_Select",
+        Multi = false,
+        Values = {"Click 'Scan Game Audio' to load"},
+        Callback = function(selected)
+            if selected and selected ~= "No audio found" and selected ~= "Click 'Scan Game Audio' to load" then
+                local audioData = audioNameToData[selected]
+                if audioData then
+                    selectedAudioData = audioData
+                    if musicEnabled then
+                        playMusic(audioData)
+                    else
+                        WindUI:Notify({Title = "Background Music", Content = "Selected: " .. audioData.name, Duration = 2, Icon = "music"})
+                    end
+                end
+            end
+        end
+    })
+    
+    -- Selected audio info
+    BackgroundMusicSection:Paragraph({
+        Title = "Selected Audio",
+        Desc = "No audio selected"
+    })
+    
+    -- Enable toggle
+    BackgroundMusicSection:Toggle({
+        Title = "Enable Background Music",
+        Flag = "BGMusic_Enable",
+        Desc = "Play selected background music",
+        Default = false,
+        Callback = function(state)
+            musicEnabled = state
+            if state then
+                if #scannedAudioList == 0 then
+                    WindUI:Notify({Title = "Background Music", Content = "Please scan first!", Duration = 3, Icon = "alert-circle"})
+                    return
+                end
+                if selectedAudioData then
+                    playMusic(selectedAudioData)
+                end
+            else
+                stopMusic()
+                WindUI:Notify({Title = "Background Music", Content = "Stopped", Duration = 2, Icon = "music"})
+            end
+        end
+    })
+    
+    -- Volume
+    BackgroundMusicSection:Slider({
+        Title = "Volume",
+        Flag = "BGMusic_Volume",
+        Desc = "Adjust volume (0-100%)",
+        Step = 1,
+        Value = { Min = 0, Max = 100, Default = 50 },
+        Callback = function(value)
+            updateVolume(value / 100)
+        end
+    })
+    
+    -- Pause/Resume
+    BackgroundMusicSection:Button({
+        Title = "⏸️ Pause",
+        Desc = "Pause music",
+        Callback = function()
+            if currentMusicSound and currentMusicSound.Parent then
+                currentMusicSound:Pause()
+                WindUI:Notify({Title = "Background Music", Content = "Paused", Duration = 2, Icon = "pause"})
+            end
+        end
+    })
+    
+    BackgroundMusicSection:Button({
+        Title = "▶️ Resume",
+        Desc = "Resume music",
+        Callback = function()
+            if currentMusicSound and currentMusicSound.Parent then
+                currentMusicSound:Resume()
+                WindUI:Notify({Title = "Background Music", Content = "Resumed", Duration = 2, Icon = "play"})
+            end
+        end
+    })
+    
+    -- Cleanup
+    game:GetService("Players").LocalPlayer.AncestryChanged:Connect(function()
+        cleanupMusic()
+    end)
 end
 -- ===== END FLY FEATURE =====
 
@@ -16608,78 +17154,208 @@ local AutoRemoveHorsesToggle = VisualSection:Toggle({
 _G.KatchiToggleElements = _G.KatchiToggleElements or {}
 _G.KatchiToggleElements.AutoRemoveHorses = AutoRemoveHorsesToggle
 
--- === Simplified Visuals: Fullbright & NoFog ===
+-- === Simplified Visuals: Fullbright & NoFog (IMPROVED & OPTIMIZED) ===
 local Lighting = game:GetService("Lighting")
 
 local fullbrightEnabled = false
 local noFogEnabled = false
 
--- Save originals for restoration
-local originalLighting = {
-    Brightness = Lighting.Brightness,
-    ClockTime = Lighting.ClockTime,
-    FogEnd = Lighting.FogEnd,
-    GlobalShadows = Lighting.GlobalShadows,
-    OutdoorAmbient = Lighting.OutdoorAmbient,
-}
+-- Save originals for restoration with better error handling
+local originalLighting = {}
+local atmosphereBackup = {} -- Store removed atmospheres for restoration
 
--- Simple Fullbright - just set values once
+-- Initialize original values with error handling
+local function saveOriginalLighting()
+    local success, err = pcall(function()
+        originalLighting = {
+            Brightness = Lighting.Brightness,
+            ClockTime = Lighting.ClockTime,
+            FogEnd = Lighting.FogEnd,
+            FogStart = Lighting.FogStart,
+            GlobalShadows = Lighting.GlobalShadows,
+            OutdoorAmbient = Lighting.OutdoorAmbient,
+        }
+    end)
+    if not success then
+        warn("[Visual Fix] Failed to save original lighting:", err)
+    end
+end
+
+saveOriginalLighting()
+
+-- IMPROVED: Fullbright now works independently from NoFog
 local function applyFullbright()
-    pcall(function()
+    local success, err = pcall(function()
         Lighting.Brightness = 2
         Lighting.ClockTime = 14
-        Lighting.FogEnd = 100000
+        -- Only set FogEnd if NoFog is NOT enabled (independent control)
+        if not noFogEnabled then
+            Lighting.FogEnd = 100000
+        end
         Lighting.GlobalShadows = false
         Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
     end)
+    if not success then
+        warn("[Visual Fix] Fullbright apply failed:", err)
+        WindUI:Notify({ Title = "Visual Error", Content = "Fullbright failed to apply", Duration = 3, Icon = "alert-triangle" })
+    end
 end
 
 local function restoreFullbright()
-    pcall(function()
-        Lighting.Brightness = originalLighting.Brightness
-        Lighting.ClockTime = originalLighting.ClockTime
+    local success, err = pcall(function()
+        Lighting.Brightness = originalLighting.Brightness or 1
+        Lighting.ClockTime = originalLighting.ClockTime or 14
+        -- Only restore FogEnd if NoFog is NOT enabled (independent control)
         if not noFogEnabled then
-            Lighting.FogEnd = originalLighting.FogEnd
+            Lighting.FogEnd = originalLighting.FogEnd or 100000
         end
-        Lighting.GlobalShadows = originalLighting.GlobalShadows
-        Lighting.OutdoorAmbient = originalLighting.OutdoorAmbient
+        Lighting.GlobalShadows = originalLighting.GlobalShadows ~= nil and originalLighting.GlobalShadows or true
+        Lighting.OutdoorAmbient = originalLighting.OutdoorAmbient or Color3.fromRGB(127, 127, 127)
     end)
+    if not success then
+        warn("[Visual Fix] Fullbright restore failed:", err)
+    end
 end
 
--- Simple NoFog - just set FogEnd and destroy Atmospheres
+-- IMPROVED: NoFog with atmosphere backup and better error handling
 local function applyNoFog()
-    pcall(function()
+    local success, err = pcall(function()
         Lighting.FogEnd = 100000
+        Lighting.FogStart = 0
+        
+        -- Backup and remove atmospheres (non-destructive)
+        atmosphereBackup = {}
         for _, v in pairs(Lighting:GetDescendants()) do
             if v:IsA("Atmosphere") then
-                v:Destroy()
+                table.insert(atmosphereBackup, {
+                    Instance = v,
+                    Parent = v.Parent,
+                    Density = v.Density,
+                    Offset = v.Offset,
+                    Color = v.Color,
+                    Decay = v.Decay,
+                    Glare = v.Glare,
+                    Haze = v.Haze
+                })
+                v.Parent = nil -- Hide instead of destroy
+            end
+        end
+    end)
+    if not success then
+        warn("[Visual Fix] NoFog apply failed:", err)
+        WindUI:Notify({ Title = "Visual Error", Content = "NoFog failed to apply", Duration = 3, Icon = "alert-triangle" })
+    end
+end
+
+local function restoreNoFog()
+    local success, err = pcall(function()
+        -- Only restore FogEnd if Fullbright is NOT enabled (independent control)
+        if not fullbrightEnabled then
+            Lighting.FogEnd = originalLighting.FogEnd or 100000
+            Lighting.FogStart = originalLighting.FogStart or 0
+        end
+        
+        -- Restore backed up atmospheres
+        for _, backup in ipairs(atmosphereBackup) do
+            if backup.Instance and backup.Parent then
+                backup.Instance.Parent = backup.Parent
+            end
+        end
+        atmosphereBackup = {}
+    end)
+    if not success then
+        warn("[Visual Fix] NoFog restore failed:", err)
+    end
+end
+
+-- CONTINUOUS NOFOG MONITOR (handles map resets)
+local noFogMonitorConn = nil
+local lastMapCheck = 0
+local MAP_CHECK_INTERVAL = 15 -- Check every 15 seconds for map changes
+
+local function startNoFogMonitor()
+    if noFogMonitorConn then return end
+    
+    lastMapCheck = tick()
+    
+    -- Spawn monitoring loop
+    task.spawn(function()
+        while noFogEnabled do
+            task.wait(1) -- Check every second
+            
+            if not noFogEnabled then break end
+            
+            local currentTime = tick()
+            
+            -- Check if fog has been reset by the game
+            local fogWasReset = false
+            pcall(function()
+                if Lighting.FogEnd < 50000 then -- Game reset fog
+                    fogWasReset = true
+                end
+            end)
+            
+            -- If fog was reset, wait 15 seconds then reapply
+            if fogWasReset and (currentTime - lastMapCheck) >= MAP_CHECK_INTERVAL then
+                lastMapCheck = currentTime
+                
+                -- Wait for map to fully load
+                task.wait(15)
+                
+                -- Reapply NoFog if still enabled
+                if noFogEnabled then
+                    pcall(function()
+                        warn("[Visual Fix] Map detected - reapplying NoFog after 15s delay")
+                        applyNoFog()
+                        WindUI:Notify({ 
+                            Title = "Visual", 
+                            Content = "NoFog reapplied (map change detected)", 
+                            Duration = 3, 
+                            Icon = "refresh-cw" 
+                        })
+                    end)
+                end
+            elseif fogWasReset then
+                -- Fog was reset but cooldown not passed, just reapply immediately
+                pcall(function()
+                    Lighting.FogEnd = 100000
+                    Lighting.FogStart = 0
+                end)
             end
         end
     end)
 end
 
-local function restoreNoFog()
-    if not fullbrightEnabled then
-        pcall(function()
-            Lighting.FogEnd = originalLighting.FogEnd
-        end)
-    end
+local function stopNoFogMonitor()
+    noFogMonitorConn = nil
 end
 
--- UI toggles
+-- UI toggles with improved error handling
 VisualSection:Toggle({
     Title = "Fullbright",
     Flag = "Visual_1",
     Desc = "Enable fullbright lighting",
     Default = false,
     Callback = function(state)
-        fullbrightEnabled = state
-        if state then
-            applyFullbright()
-            WindUI:Notify({ Title = "Visual", Content = "Fullbright enabled.", Duration = 2, Icon = "sun" })
-        else
-            restoreFullbright()
-            WindUI:Notify({ Title = "Visual", Content = "Fullbright disabled.", Duration = 2, Icon = "moon" })
+        local success, err = pcall(function()
+            fullbrightEnabled = state
+            if state then
+                applyFullbright()
+                WindUI:Notify({ Title = "Visual", Content = "Fullbright enabled.", Duration = 2, Icon = "sun" })
+            else
+                restoreFullbright()
+                WindUI:Notify({ Title = "Visual", Content = "Fullbright disabled.", Duration = 2, Icon = "moon" })
+            end
+        end)
+        
+        if not success then
+            warn("[Visual Fix] Fullbright toggle error:", err)
+            WindUI:Notify({ 
+                Title = "Visual Error", 
+                Content = "Fullbright toggle failed: " .. tostring(err), 
+                Duration = 4, 
+                Icon = "alert-triangle" 
+            })
         end
     end
 })
@@ -16687,16 +17363,30 @@ VisualSection:Toggle({
 VisualSection:Toggle({
     Title = "No Fog",
     Flag = "Visual_2",
-    Desc = "Remove fog and atmospheres",
+    Desc = "Remove fog and atmospheres (auto-reapplies on map change)",
     Default = false,
     Callback = function(state)
-        noFogEnabled = state
-        if state then
-            applyNoFog()
-            WindUI:Notify({ Title = "Visual", Content = "NoFog enabled.", Duration = 2, Icon = "cloud-off" })
-        else
-            restoreNoFog()
-            WindUI:Notify({ Title = "Visual", Content = "NoFog disabled.", Duration = 2, Icon = "cloud" })
+        local success, err = pcall(function()
+            noFogEnabled = state
+            if state then
+                applyNoFog()
+                startNoFogMonitor() -- Start monitoring for map changes
+                WindUI:Notify({ Title = "Visual", Content = "NoFog enabled with auto-reapply.", Duration = 2, Icon = "cloud-off" })
+            else
+                stopNoFogMonitor() -- Stop monitoring
+                restoreNoFog()
+                WindUI:Notify({ Title = "Visual", Content = "NoFog disabled.", Duration = 2, Icon = "cloud" })
+            end
+        end)
+        
+        if not success then
+            warn("[Visual Fix] NoFog toggle error:", err)
+            WindUI:Notify({ 
+                Title = "Visual Error", 
+                Content = "NoFog toggle failed: " .. tostring(err), 
+                Duration = 4, 
+                Icon = "alert-triangle" 
+            })
         end
     end
 })
@@ -16904,6 +17594,101 @@ VisualSection:Toggle({
     end
 })
 
+-- ===== FPS BOOSTER =====
+local fpsBoosterEnabled = false
+local fpsBoosterConnection = nil
+
+local function applyFPSBoost()
+    pcall(function()
+        -- Single-pass: handle textures, meshes, materials, particles, beams, and sky together
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            pcall(function()
+                if obj:IsA("Texture") or obj:IsA("Decal") then
+                    obj.Transparency = 1
+                elseif obj:IsA("SpecialMesh") then
+                    obj.TextureId = ""
+                elseif obj:IsA("BasePart") then
+                    obj.Material = Enum.Material.SmoothPlastic
+                    obj.Reflectance = 0
+                elseif obj:IsA("Sky") then
+                    obj:Destroy()
+                elseif obj:IsA("ParticleEmitter") or obj:IsA("Beam") or obj:IsA("Trail")
+                    or obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
+                    obj.Enabled = false
+                end
+            end)
+        end
+
+        -- Strip lighting effects
+        local Lighting = game:GetService("Lighting")
+        for _, effect in ipairs(Lighting:GetChildren()) do
+            pcall(function()
+                if effect:IsA("BloomEffect") or effect:IsA("BlurEffect")
+                or effect:IsA("ColorCorrectionEffect") or effect:IsA("SunRaysEffect")
+                or effect:IsA("DepthOfFieldEffect") then
+                    effect:Destroy()
+                end
+            end)
+        end
+
+        -- Flatten lighting
+        pcall(function()
+            Lighting.GlobalShadows = false
+            Lighting.FogEnd = 100000
+            Lighting.FogStart = 100000
+        end)
+    end)
+end
+
+VisualSection:Toggle({
+    Title = "FPS Booster",
+    Flag = "Visual_FPSBooster",
+    Desc = "Obliterates textures, lighting & particles for maximum FPS",
+    Icon = "zap",
+    Default = false,
+    Callback = function(state)
+        fpsBoosterEnabled = state
+        if state then
+            applyFPSBoost()
+            -- Reapply every time a new map/descendants are added
+            fpsBoosterConnection = Workspace.DescendantAdded:Connect(function(obj)
+                if not fpsBoosterEnabled then return end
+                pcall(function()
+                    if obj:IsA("Texture") or obj:IsA("Decal") then
+                        obj.Transparency = 1
+                    elseif obj:IsA("SpecialMesh") then
+                        obj.TextureId = ""
+                    elseif obj:IsA("BasePart") then
+                        obj.Material = Enum.Material.SmoothPlastic
+                        obj.Reflectance = 0
+                    elseif obj:IsA("Sky") then
+                        obj:Destroy()
+                    elseif obj:IsA("ParticleEmitter") or obj:IsA("Beam") or obj:IsA("Trail") or obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
+                        obj.Enabled = false
+                    end
+                end)
+            end)
+            WindUI:Notify({
+                Title = "FPS Booster",
+                Content = "Textures demolished. Reapplies on map change.",
+                Duration = 3,
+                Icon = "zap"
+            })
+        else
+            if fpsBoosterConnection then
+                fpsBoosterConnection:Disconnect()
+                fpsBoosterConnection = nil
+            end
+            WindUI:Notify({
+                Title = "FPS Booster",
+                Content = "FPS Booster disabled.",
+                Duration = 2,
+                Icon = "zap-off"
+            })
+        end
+    end
+})
+
 -- ===== STREAMER MODE =====
 -- Anonymizes all player names including your own for privacy while streaming
 -- streamerModeEnabled and streamerModeIconDisabled are declared globally near Window creation
@@ -17025,13 +17810,14 @@ local function setupStreamerModeConnections()
         end))
     end
     
-    -- Periodic refresh to catch any reset names
+    -- Periodic refresh to catch any reset names (proper throttle, not fragile tick()%2)
+    local _streamerLastRefresh = 0
     table.insert(streamerModeConnections, RunService.Heartbeat:Connect(function()
         if not streamerModeEnabled then return end
-        -- Only refresh every ~2 seconds to avoid performance issues
-        if tick() % 2 < 0.016 then
-            applyStreamerModeToAllPlayers()
-        end
+        local now = tick()
+        if now - _streamerLastRefresh < 2 then return end
+        _streamerLastRefresh = now
+        applyStreamerModeToAllPlayers()
     end))
 end
 
@@ -17142,47 +17928,44 @@ end
     local function startAntiBreakLegs()
         disconnectAntiBreakLegs()
 
-        -- Cache references (re-found on character change, not every frame)
-        local cachedChar, cachedHum, cachedRoot, cachedUserStates, cachedBrokenLegs
-        local lastCacheTime = 0
-        local CACHE_INTERVAL = 0.5 -- Re-check refs every 0.5s
-
-        -- Throttle counter for the BrokenLegs clear (no need every single frame)
-        local clearTicker = 0
-        local CLEAR_INTERVAL = 0.1 -- Clear BrokenLegs every 0.1s instead of every frame
-
-        -- Single RenderStepped connection (Heartbeat removed - redundant)
-        antiBreakLegsConn = RunService.RenderStepped:Connect(function(dt)
+        -- Main loop - clear broken legs and apply climbing state when falling
+        antiBreakLegsConn = RunService.RenderStepped:Connect(function()
             if not antiBreakLegsEnabled then return end
 
-            -- Refresh cached refs periodically (not every frame)
-            local now = tick()
-            if now - lastCacheTime > CACHE_INTERVAL then
-                lastCacheTime = now
-                cachedChar = LocalPlayer and LocalPlayer.Character
-                cachedHum = cachedChar and cachedChar:FindFirstChildOfClass("Humanoid")
-                cachedRoot = cachedChar and cachedChar:FindFirstChild("HumanoidRootPart")
-                cachedUserStates = LocalPlayer:FindFirstChild("UserStates")
-                cachedBrokenLegs = cachedUserStates and cachedUserStates:FindFirstChild("BrokenLegs")
-            end
+            local char = LocalPlayer and LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if not hum or not root then return end
 
-            if not cachedHum or not cachedRoot then return end
-
-            -- Clear broken legs state (throttled, not every frame)
-            clearTicker = clearTicker + (dt or 0)
-            if clearTicker >= CLEAR_INTERVAL then
-                clearTicker = 0
-                if cachedBrokenLegs then
-                    cachedBrokenLegs.Value = false
+            -- Always clear broken legs state every frame
+            local userStates = LocalPlayer:FindFirstChild("UserStates")
+            if userStates then
+                local brokenLegs = userStates:FindFirstChild("BrokenLegs")
+                if brokenLegs then
+                    brokenLegs.Value = false
                 end
             end
 
-            -- Check if we're airborne and falling fast
-            local floorMaterial = cachedHum.FloorMaterial
-            if floorMaterial == Enum.Material.Air then
-                local yVel = cachedRoot.Velocity.Y
-                if yVel < ANTI_BREAK_LEGS_FALL_SPEED then
-                    cachedHum:ChangeState(Enum.HumanoidStateType.Climbing)
+            -- Check if we're airborne (not touching ground)
+            local floorMaterial = hum.FloorMaterial
+            local isAirborne = floorMaterial == Enum.Material.Air
+
+            -- If falling and airborne, continuously set climbing state
+            local yVel = root.Velocity.Y
+            if isAirborne and yVel < ANTI_BREAK_LEGS_FALL_SPEED then
+                hum:ChangeState(Enum.HumanoidStateType.Climbing)
+            end
+        end)
+
+        -- Secondary heartbeat loop for redundancy (catches state changes between frames)
+        antiBreakLegsHeartbeatConn = RunService.Heartbeat:Connect(function()
+            if not antiBreakLegsEnabled then return end
+
+            local userStates = LocalPlayer:FindFirstChild("UserStates")
+            if userStates then
+                local brokenLegs = userStates:FindFirstChild("BrokenLegs")
+                if brokenLegs and brokenLegs.Value then
+                    brokenLegs.Value = false
                 end
             end
         end)
@@ -18301,6 +19084,481 @@ end
         end
     })
 
+    -- === WALK NOCLIP (Independent from Fly) ===
+    local WalkNoclipEnabled = false
+    _G.KatchiWalkNoclipEnabled = false
+    local walkNoclipConn = nil
+    local walkNoclipCollisionConn = nil
+    local walkNoclipTeleportConn = nil
+    
+    -- Walk noclip state (using Fly Noclip bypass mechanics)
+    local walkLastPosition = nil
+    local walkServerPosition = nil
+    local walkIsLoopTeleporting = false
+    local walkTeleportEndTime = 0
+    local walkHeadAnchored = false
+    local walkIsInsideWall = false
+    local walkWallEntryTime = 0
+    local walkClearFrameCount = 0
+    local WALK_WALL_COOLDOWN = 1 -- 1 second cooldown
+    local WALK_CLEAR_FRAMES_NEEDED = 5 -- Need 5 frames clearly outside
+    local walkNoclipSpeed = 16 -- Speed for movement inside walls
+    
+    -- Walk noclip raycast params (separate from fly noclip)
+    local walkNoclipRayParams = nil
+    
+    local function setupWalkNoclipRayParams()
+        walkNoclipRayParams = RaycastParams.new()
+        walkNoclipRayParams.FilterType = Enum.RaycastFilterType.Exclude
+        
+        local filterList = {}
+        local char = LocalPlayer.Character
+        if char then table.insert(filterList, char) end
+        
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr.Character and plr.Character ~= char then
+                table.insert(filterList, plr.Character)
+            end
+        end
+        
+        local zombiesFolder = workspace:FindFirstChild("Zombies")
+        if zombiesFolder then table.insert(filterList, zombiesFolder) end
+        
+        local cameraFolder = workspace:FindFirstChild("Camera")
+        if cameraFolder then table.insert(filterList, cameraFolder) end
+        
+        walkNoclipRayParams.FilterDescendantsInstances = filterList
+    end
+    
+    local function isWalkInWall(pos)
+        setupWalkNoclipRayParams()
+        
+        local directions = {
+            Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0),
+            Vector3.new(0, 0, 1), Vector3.new(0, 0, -1),
+            Vector3.new(0, 1, 0), Vector3.new(0, -1, 0),
+            Vector3.new(1, 0, 1).Unit, Vector3.new(1, 0, -1).Unit,
+            Vector3.new(-1, 0, 1).Unit, Vector3.new(-1, 0, -1).Unit,
+            Vector3.new(1, 1, 0).Unit, Vector3.new(-1, 1, 0).Unit,
+            Vector3.new(0, 1, 1).Unit, Vector3.new(0, 1, -1).Unit,
+            Vector3.new(1, -1, 0).Unit, Vector3.new(-1, -1, 0).Unit,
+            Vector3.new(0, -1, 1).Unit, Vector3.new(0, -1, -1).Unit,
+        }
+        
+        for _, dir in ipairs(directions) do
+            local result = workspace:Raycast(pos, dir * 2, walkNoclipRayParams)
+            if result and result.Instance and result.Instance.CanCollide then
+                return true
+            end
+        end
+        
+        return false
+    end
+    
+    local function isWalkClearlyOutside(pos)
+        setupWalkNoclipRayParams()
+        
+        local directions = {
+            Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0),
+            Vector3.new(0, 0, 1), Vector3.new(0, 0, -1),
+            Vector3.new(1, 0, 1).Unit, Vector3.new(1, 0, -1).Unit,
+            Vector3.new(-1, 0, 1).Unit, Vector3.new(-1, 0, -1).Unit,
+            Vector3.new(0, 1, 0), Vector3.new(0, -1, 0),
+            Vector3.new(1, 1, 0).Unit, Vector3.new(-1, 1, 0).Unit,
+            Vector3.new(0, 1, 1).Unit, Vector3.new(0, 1, -1).Unit,
+            Vector3.new(1, -1, 0).Unit, Vector3.new(-1, -1, 0).Unit,
+            Vector3.new(0, -1, 1).Unit, Vector3.new(0, -1, -1).Unit,
+        }
+        
+        for _, dir in ipairs(directions) do
+            local result = workspace:Raycast(pos, dir * 4, walkNoclipRayParams)
+            if result and result.Instance and result.Instance.CanCollide then
+                return false
+            end
+        end
+        
+        return true
+    end
+    
+    local function isWalkUnderground(pos)
+        if not walkNoclipRayParams then setupWalkNoclipRayParams() end
+        
+        local char = LocalPlayer.Character
+        walkNoclipRayParams.FilterDescendantsInstances = char and {char} or {}
+        
+        local floorCheck = workspace:Raycast(pos, Vector3.new(0, -500, 0), walkNoclipRayParams)
+        
+        if floorCheck and floorCheck.Instance then
+            if floorCheck.Instance:IsA("Terrain") then
+                return floorCheck.Distance < 0.1 or pos.Y < floorCheck.Position.Y
+            end
+        end
+        
+        local ceilingCheck = workspace:Raycast(pos, Vector3.new(0, 500, 0), walkNoclipRayParams)
+        if ceilingCheck and ceilingCheck.Instance and ceilingCheck.Instance:IsA("Terrain") then
+            return true
+        end
+        
+        return false
+    end
+    
+    -- Loop teleport to position (bypass mechanic from Fly Noclip)
+    local function walkNoclipLoopTP(targetPos, duration)
+        walkIsLoopTeleporting = true
+        walkTeleportEndTime = tick() + (duration or 1)
+        
+        if walkNoclipTeleportConn then
+            walkNoclipTeleportConn:Disconnect()
+        end
+        
+        walkNoclipTeleportConn = RunService.Heartbeat:Connect(function()
+            if not walkIsLoopTeleporting or tick() > walkTeleportEndTime then
+                walkIsLoopTeleporting = false
+                if walkNoclipTeleportConn then
+                    walkNoclipTeleportConn:Disconnect()
+                    walkNoclipTeleportConn = nil
+                end
+                return
+            end
+            
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local rot = hrp.CFrame - hrp.CFrame.Position
+                hrp.CFrame = CFrame.new(targetPos) * rot
+            end
+        end)
+    end
+    
+    local function stopWalkNoclipLoopTP()
+        walkIsLoopTeleporting = false
+        if walkNoclipTeleportConn then
+            walkNoclipTeleportConn:Disconnect()
+            walkNoclipTeleportConn = nil
+        end
+    end
+    
+    -- Enter CFrame mode (when going into wall) - bypass mechanic
+    local function enterWalkCFrameMode()
+        if walkHeadAnchored then return end
+        
+        local char = LocalPlayer.Character
+        if not char then return end
+        
+        local head = char:FindFirstChild("Head")
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        
+        if not head or not humanoid or not hrp then return end
+        
+        -- Store server position before entering wall
+        walkServerPosition = hrp.Position
+        walkLastPosition = hrp.Position
+        
+        -- Enable CFrame fly mode (bypass mechanic)
+        humanoid.PlatformStand = true
+        head.Anchored = true
+        walkHeadAnchored = true
+        
+        walkIsInsideWall = true
+        walkWallEntryTime = tick()
+    end
+    
+    -- Exit CFrame mode (when leaving wall) - bypass mechanic
+    local function exitWalkCFrameMode()
+        if not walkHeadAnchored then return end
+        
+        local char = LocalPlayer.Character
+        if not char then return end
+        
+        local head = char:FindFirstChild("Head")
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        
+        -- Restore character state
+        if head then
+            head.Anchored = false
+        end
+        
+        if humanoid then
+            humanoid.PlatformStand = false
+        end
+        
+        walkHeadAnchored = false
+        walkIsInsideWall = false
+        
+        -- Teleport to current visual position (bypass mechanic)
+        if walkLastPosition then
+            walkNoclipLoopTP(walkLastPosition, 1)
+        end
+    end
+    
+    -- Walk Noclip uses Fly Noclip bypass mechanics but stays grounded!
+    
+    local function startWalkNoclip()
+        if walkNoclipConn then return end
+        
+        local char = LocalPlayer.Character
+        if not char then return end
+        
+        local head = char:FindFirstChild("Head")
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        
+        if not head or not humanoid or not hrp then return end
+        
+        _G.WalkNoclipBypassEnabled = true
+        setupWalkNoclipRayParams()
+        
+        -- Initialize positions (bypass mechanic)
+        walkServerPosition = hrp.Position
+        walkLastPosition = hrp.Position
+        walkIsInsideWall = false
+        walkHeadAnchored = false
+        
+        -- Main loop - monitor wall entry/exit and handle CFrame movement (BYPASS MECHANIC from Fly Noclip)
+        walkNoclipConn = RunService.RenderStepped:Connect(function(deltaTime)
+            if not WalkNoclipEnabled then return end
+            
+            local character = LocalPlayer.Character
+            if not character then return end
+            
+            local hum = character:FindFirstChildOfClass("Humanoid")
+            local headPart = character:FindFirstChild("Head")
+            local rootPart = character:FindFirstChild("HumanoidRootPart")
+            
+            if not hum or not headPart or not rootPart then return end
+            
+            -- Get current position
+            local currentPos = walkHeadAnchored and headPart.Position or rootPart.Position
+            
+            -- Check if we're in a wall (bypass detection)
+            local inWall = isWalkInWall(currentPos)
+            
+            if inWall and not walkIsInsideWall then
+                -- Just entered a wall - start CFrame mode (BYPASS)
+                walkClearFrameCount = 0
+                enterWalkCFrameMode()
+            elseif walkIsInsideWall then
+                -- We're in CFrame mode - check if cooldown passed before checking wall exit
+                local timeInWall = tick() - walkWallEntryTime
+                if timeInWall >= WALK_WALL_COOLDOWN then
+                    -- Cooldown passed, check if we CLEARLY left the wall
+                    if isWalkClearlyOutside(currentPos) then
+                        walkClearFrameCount = walkClearFrameCount + 1
+                        if walkClearFrameCount >= WALK_CLEAR_FRAMES_NEEDED then
+                            -- Been clearly outside for multiple frames, safe to exit
+                            exitWalkCFrameMode()
+                            walkClearFrameCount = 0
+                        end
+                    else
+                        -- Still near a wall, reset counter
+                        walkClearFrameCount = 0
+                    end
+                end
+            end
+            
+            -- If in CFrame mode (inside wall), handle FULL 3D movement (like Fly Noclip)
+            if walkHeadAnchored then
+                -- Keep anchored and platform stand (BYPASS)
+                if not headPart.Anchored then headPart.Anchored = true end
+                if not hum.PlatformStand then hum.PlatformStand = true end
+                
+                -- Get movement from humanoid MoveDirection
+                local moveDirection = hum.MoveDirection * (walkNoclipSpeed * deltaTime)
+                
+                -- Vertical movement (E = up, Q = down) - SAME AS FLY NOCLIP
+                local verticalMove = 0
+                if UserInputService:IsKeyDown(Enum.KeyCode.E) then
+                    verticalMove = walkNoclipSpeed * deltaTime
+                elseif UserInputService:IsKeyDown(Enum.KeyCode.Q) then
+                    verticalMove = -walkNoclipSpeed * deltaTime
+                end
+                
+                local headCFrame = headPart.CFrame
+                local camera = workspace.CurrentCamera
+                local cameraCFrame = camera.CFrame
+                
+                -- Calculate camera offset
+                local cameraOffset = headCFrame:ToObjectSpace(cameraCFrame).Position
+                cameraCFrame = cameraCFrame * CFrame.new(-cameraOffset.X, -cameraOffset.Y, -cameraOffset.Z + 1)
+                
+                local cameraPosition = cameraCFrame.Position
+                local headPosition = headCFrame.Position
+                
+                -- Convert movement to camera-relative (FULL 3D like Fly Noclip)
+                local objectSpaceVelocity = CFrame.new(cameraPosition, Vector3.new(headPosition.X, cameraPosition.Y, headPosition.Z)):VectorToObjectSpace(moveDirection)
+                objectSpaceVelocity = objectSpaceVelocity + Vector3.new(0, verticalMove, 0)
+                
+                -- Calculate new position (full 3D movement)
+                local newPos = headPosition + (cameraCFrame - cameraPosition):VectorToWorldSpace(objectSpaceVelocity)
+                
+                -- Prevent underground (safety check)
+                if isWalkUnderground(newPos) then
+                    if objectSpaceVelocity.Y < 0 then
+                        objectSpaceVelocity = Vector3.new(objectSpaceVelocity.X, 0, objectSpaceVelocity.Z)
+                    end
+                    newPos = headPosition + (cameraCFrame - cameraPosition):VectorToWorldSpace(objectSpaceVelocity)
+                    
+                    if isWalkUnderground(newPos) then
+                        newPos = headPosition
+                    end
+                end
+                
+                -- Move head via CFrame (bypass mechanic - client-only movement)
+                headPart.CFrame = CFrame.new(newPos) * (cameraCFrame - cameraPosition)
+                
+                -- Update last position
+                walkLastPosition = headPart.Position
+            else
+                -- Not in CFrame mode, just track position
+                walkLastPosition = rootPart.Position
+                walkServerPosition = rootPart.Position
+            end
+            
+            _G.WalkNoclipLastValidPosition = walkServerPosition
+        end)
+        
+        -- Collision disable loop (bypass mechanic)
+        walkNoclipCollisionConn = RunService.Stepped:Connect(function()
+            if not WalkNoclipEnabled then return end
+            
+            local character = LocalPlayer.Character
+            if not character then return end
+            
+            for _, partName in ipairs(NOCLIP_PARTS) do
+                local part = character:FindFirstChild(partName)
+                if part and part:IsA("BasePart") then
+                    pcall(function() part.CanCollide = false end)
+                end
+            end
+            
+            for _, child in pairs(character:GetChildren()) do
+                if child:IsA("Accessory") or child:IsA("Hat") then
+                    local handle = child:FindFirstChild("Handle")
+                    if handle then
+                        pcall(function() handle.CanCollide = false end)
+                    end
+                end
+            end
+        end)
+    end
+    
+    local function stopWalkNoclip()
+        WalkNoclipEnabled = false
+        _G.KatchiWalkNoclipEnabled = false
+        _G.WalkNoclipBypassEnabled = false
+        _G.WalkNoclipLastValidPosition = nil
+        
+        -- Get final position before cleanup (bypass mechanic)
+        local finalPos = walkLastPosition
+        local wasInCFrameMode = walkHeadAnchored
+        
+        -- Clean up connections
+        if walkNoclipConn then
+            walkNoclipConn:Disconnect()
+            walkNoclipConn = nil
+        end
+        
+        if walkNoclipCollisionConn then
+            walkNoclipCollisionConn:Disconnect()
+            walkNoclipCollisionConn = nil
+        end
+        
+        -- Restore character state (bypass mechanic)
+        local char = LocalPlayer.Character
+        if char then
+            local head = char:FindFirstChild("Head")
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            
+            if head and walkHeadAnchored then
+                head.Anchored = false
+            end
+            
+            if humanoid then
+                humanoid.PlatformStand = false
+            end
+            
+            -- Restore collision on all parts
+            for _, partName in ipairs(NOCLIP_PARTS) do
+                local part = char:FindFirstChild(partName)
+                if part and part:IsA("BasePart") then
+                    pcall(function() part.CanCollide = true end)
+                end
+            end
+        end
+        
+        walkHeadAnchored = false
+        walkIsInsideWall = false
+        
+        -- If we were in CFrame mode, teleport to final position (bypass mechanic)
+        if wasInCFrameMode and finalPos then
+            walkNoclipLoopTP(finalPos, 1)
+        end
+        
+        -- Reset state
+        walkLastPosition = nil
+        walkServerPosition = nil
+    end
+    
+    _G.KatchiStopWalkNoclip = stopWalkNoclip
+    
+    -- Re-setup on respawn (bypass mechanic)
+    LocalPlayer.CharacterAdded:Connect(function(newChar)
+        stopWalkNoclipLoopTP()
+        walkLastPosition = nil
+        walkServerPosition = nil
+        walkHeadAnchored = false
+        walkIsInsideWall = false
+        
+        if WalkNoclipEnabled then
+            task.wait(0.3)
+            startWalkNoclip()
+        end
+    end)
+    
+    -- Walk Noclip Toggle (same as Fly Noclip but independent)
+    local WalkNoclipToggle = ServerModifiersSection:Toggle({
+        Title = "Walk Noclip Bypass",
+        Flag = "ServerMods_WalkNoclipBypass",
+        Desc = "Fly through walls (doesn't require Fly enabled, Kinda unstable)",
+        Default = false,
+        Callback = function(state)
+            WalkNoclipEnabled = state
+            _G.KatchiWalkNoclipEnabled = state
+            
+            if state then
+                startWalkNoclip()
+                WindUI:Notify({
+                    Title = "Server Modifiers",
+                    Content = "Walk Noclip enabled - fly through walls freely!",
+                    Duration = 3,
+                    Icon = "move",
+                })
+            else
+                stopWalkNoclip()
+                WindUI:Notify({
+                    Title = "Server Modifiers",
+                    Content = "Walk Noclip disabled.",
+                    Duration = 2,
+                    Icon = "move",
+                })
+            end
+        end
+    })
+    _G.KatchiToggleElements.WalkNoclipBypass = WalkNoclipToggle
+    
+    -- Walk Noclip Speed (controls movement speed in all directions)
+    ServerModifiersSection:Slider({
+        Title = "Walk Noclip Speed",
+        Flag = "ServerMods_WalkNoclipSpeed",
+        Desc = "Speed when flying through walls",
+        Step = 1,
+        Value = { Min = 8, Max = 35, Default = 16 },
+        Callback = function(v)
+            walkNoclipSpeed = tonumber(v) or 16
+        end
+    })
+
     -- === Server utilities ===
     ServerSection:Button({
         Title = "Rejoin Server",
@@ -18455,11 +19713,6 @@ do -- // Maps Hacks Tab
         return nearest
     end
     
-    -- PERFORMANCE: Cache hammer remote for bridge repair (avoids repeated FindFirstChild every 0.2s)
-    local cachedBridgeHammerRemote = nil
-    local cachedBridgeHammerTime = 0
-    local BRIDGE_HAMMER_CACHE_TTL = 2 -- Re-check hammer every 2 seconds
-    
     local function doRepairBridge()
         local target = getNearestBridgeConstruct()
         if not target then return end
@@ -18467,48 +19720,30 @@ do -- // Maps Hacks Tab
         local char = LocalPlayer.Character
         if not char then return end
         
-        -- Use cached hammer remote
-        local now = tick()
-        local hammerRemote = cachedBridgeHammerRemote
-        if hammerRemote and (now - cachedBridgeHammerTime) < BRIDGE_HAMMER_CACHE_TTL then
-            -- Validate cached remote still exists
-            if not hammerRemote.Parent then
-                hammerRemote = nil
-                cachedBridgeHammerRemote = nil
+        -- Method 1: Check workspace.Players folder (where remotes actually are)
+        local hammerRemote = nil
+        local wsPlayers = Workspace:FindFirstChild("Players")
+        if wsPlayers then
+            local playerFolder = wsPlayers:FindFirstChild(LocalPlayer.Name)
+            if playerFolder then
+                local hammerFolder = playerFolder:FindFirstChild("Hammer") 
+                    or playerFolder:FindFirstChild("Claw Hammer")
+                if hammerFolder and hammerFolder:FindFirstChild("RemoteEvent") then
+                    hammerRemote = hammerFolder.RemoteEvent
+                end
             end
-        else
-            hammerRemote = nil -- Cache expired, re-find
         end
         
+        -- Method 2: Find hammer in backpack or character
         if not hammerRemote then
-            -- Method 1: Check workspace.Players folder
-            local wsPlayers = Workspace:FindFirstChild("Players")
-            if wsPlayers then
-                local playerFolder = wsPlayers:FindFirstChild(LocalPlayer.Name)
-                if playerFolder then
-                    local hammerFolder = playerFolder:FindFirstChild("Hammer") 
-                        or playerFolder:FindFirstChild("Claw Hammer")
-                    if hammerFolder and hammerFolder:FindFirstChild("RemoteEvent") then
-                        hammerRemote = hammerFolder.RemoteEvent
-                    end
-                end
-            end
+            local hammer = LocalPlayer.Backpack:FindFirstChild("Hammer") 
+                or LocalPlayer.Backpack:FindFirstChild("Claw Hammer")
+                or char:FindFirstChild("Hammer")
+                or char:FindFirstChild("Claw Hammer")
             
-            -- Method 2: Find hammer in backpack or character
-            if not hammerRemote then
-                local hammer = LocalPlayer.Backpack:FindFirstChild("Hammer") 
-                    or LocalPlayer.Backpack:FindFirstChild("Claw Hammer")
-                    or char:FindFirstChild("Hammer")
-                    or char:FindFirstChild("Claw Hammer")
-                
-                if hammer and hammer:FindFirstChild("RemoteEvent") then
-                    hammerRemote = hammer.RemoteEvent
-                end
+            if hammer and hammer:FindFirstChild("RemoteEvent") then
+                hammerRemote = hammer.RemoteEvent
             end
-            
-            -- Update cache
-            cachedBridgeHammerRemote = hammerRemote
-            cachedBridgeHammerTime = now
         end
         
         if not hammerRemote then return end
@@ -18839,6 +20074,671 @@ do -- // Maps Hacks Tab
     end)
     
     -- ===== END BEREZINA FEATURES =====
+    
+    -- ===== VARDOHUS FORTRESS MAP FEATURES =====
+    local VardohusSection = MapsHacksTab:Section({
+        Title = "Vardohus Fortress",
+        Icon = "crosshair",
+        Opened = false
+    })
+    
+    -- OPTIMIZATION: Use same pattern as zombie ESP
+    -- ESP Data storage with WEAK TABLES for automatic garbage collection
+    local roundshotESPData = setmetatable({}, { __mode = "k" }) -- Weak keys - auto GC
+    local swabESPData = setmetatable({}, { __mode = "k" }) -- Weak keys - auto GC
+    local vardohusUpdateConn = nil
+    local vardohusScanLoop = nil -- single shared scan loop (not per-toggle)
+    
+    -- Track items pending removal (grace period to prevent flicker like zombie ESP)
+    local ESPPendingRemoval = setmetatable({}, { __mode = "k" }) -- [item] = tick() when marked
+    local ESP_REMOVAL_GRACE_PERIOD = 0.5 -- Same as zombie ESP
+    
+    -- Performance constants (copied from zombie ESP pattern)
+    local VARDOHUS_MAX_DISTANCE = 250 -- Reduced to 250 studs for better performance
+    local VARDOHUS_CREATION_MAX_DISTANCE = 250 -- Create ESP within 250 studs
+    local VARDOHUS_SCAN_BATCH_SIZE = 20 -- Same as zombie ESP batch size
+    local ChamsTransparency = 0.5
+    
+    -- Camera caching (same as zombie ESP)
+    local cachedCameraPos = Vector3.new(0, 0, 0)
+    local lastCameraCacheTime = 0
+    local CAMERA_CACHE_INTERVAL = 0.2 -- Update camera cache every 0.2 seconds (these are static items)
+    
+    -- Colors
+    local ROUNDSHOT_COLOR = Color3.fromRGB(255, 100, 100) -- Red for 12 lb. Roundshots
+    local SWAB_COLOR = Color3.fromRGB(255, 255, 0) -- Yellow for swab
+    
+    -- Enabled state
+    local roundshotESPEnabled = false
+    local swabESPEnabled = false
+    
+    -- Cache Vardohus reference
+    local cachedVardohusRef = nil
+    local lastVardohusScan = 0
+    local VARDOHUS_SCAN_INTERVAL = 3.0 -- Scan every 3 seconds (items are static, no need to scan fast)
+    
+    -- PERFORMANCE: Cache collected items to avoid GetDescendants() every scan
+    local cachedRoundshots = {}
+    local cachedSwabs = {}
+    local lastItemCollectTime = 0
+    local ITEM_COLLECT_INTERVAL = 5.0 -- Re-collect items every 5 seconds (they rarely change)
+    
+    -- Get adorned part efficiently (copied from zombie ESP GetAdorneePart)
+    local function GetItemPart(item)
+        if not item or not item:IsA("Model") then return nil end
+        -- Check PrimaryPart first
+        if item.PrimaryPart and item.PrimaryPart:IsA("BasePart") then return item.PrimaryPart end
+        -- Use GetChildren instead of GetDescendants (much faster)
+        local children = item:GetChildren()
+        for _, p in ipairs(children) do
+            if p:IsA("BasePart") then
+                return p
+            end
+        end
+        -- Fallback: check first-level folders only
+        for _, child in ipairs(children) do
+            if child:IsA("Folder") or child:IsA("Model") then
+                for _, p in ipairs(child:GetChildren()) do
+                    if p:IsA("BasePart") then
+                        return p
+                    end
+                end
+            end
+        end
+        return nil
+    end
+    
+    -- Create ESP visuals (copied zombie ESP CreateVisual pattern)
+    local function createVardohusESP(item, espData, color, labelText)
+        if not item or not item:IsA("Model") or espData[item] then return end
+        
+        local mainPart = GetItemPart(item)
+        if not mainPart then return end
+        
+        -- PERFORMANCE: Removed per-create orphan cleanup (was iterating children every time)
+        -- Orphan cleanup only happens on toggle-off via clearESPData/nukeAllVardohusESPVisuals
+        
+        local data = {}
+        espData[item] = data
+        data.maxDistance = VARDOHUS_MAX_DISTANCE
+        local offset = Vector3.new(0, 3, 0)
+        
+        -- CREATE HIGHLIGHT (same as zombie ESP)
+        local hl = Instance.new("Highlight")
+        hl.Name = _G.getRandomStealthName and _G.getRandomStealthName() or ("HL_" .. math.random(10000, 99999))
+        hl.Adornee = item
+        hl.FillColor = color
+        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+        hl.FillTransparency = ChamsTransparency
+        hl.OutlineTransparency = 0
+        hl.Parent = item
+        data.highlight = hl
+        
+        -- CREATE BILLBOARD (same as zombie ESP)
+        local bb = Instance.new("BillboardGui")
+        bb.Name = _G.getRandomStealthName and _G.getRandomStealthName() or ("BB_" .. math.random(10000, 99999))
+        bb.Adornee = mainPart
+        bb.AlwaysOnTop = true
+        bb.LightInfluence = 0
+        bb.Size = UDim2.new(0, 120, 0, 50)
+        bb.StudsOffset = offset
+        bb.MaxDistance = VARDOHUS_MAX_DISTANCE
+        bb.Parent = item
+        data.billboard = bb
+        
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(1, 0, 1, 0)
+        frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        frame.BackgroundTransparency = 0.7
+        frame.BorderSizePixel = 1
+        frame.BorderColor3 = color
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 8)
+        corner.Parent = frame
+        frame.Parent = bb
+        
+        local lbl = Instance.new("TextLabel")
+        lbl.AnchorPoint = Vector2.new(0.5, 0)
+        lbl.Position = UDim2.new(0.5, 0, 0.1, 0)
+        lbl.Size = UDim2.new(0.9, 0, 0.5, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = labelText
+        lbl.TextColor3 = color
+        lbl.TextStrokeTransparency = 0.8
+        lbl.TextScaled = true
+        lbl.Font = Enum.Font.GothamBold
+        lbl.Parent = frame
+        data.label = lbl
+        
+        local distLbl = Instance.new("TextLabel")
+        distLbl.AnchorPoint = Vector2.new(0.5, 1)
+        distLbl.Position = UDim2.new(0.5, 0, 0.9, 0)
+        distLbl.Size = UDim2.new(0.9, 0, 0.3, 0)
+        distLbl.BackgroundTransparency = 1
+        distLbl.Text = "0 studs"
+        distLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
+        distLbl.TextScaled = true
+        distLbl.Font = Enum.Font.Gotham
+        distLbl.Parent = frame
+        data.distLabel = distLbl
+        
+        -- PROTECT ESP from anti-cheat detection (same as zombie ESP)
+        pcall(function()
+            if _G.protectESP then
+                if data.highlight then _G.protectESP(data.highlight) end
+                if data.billboard then _G.protectESP(data.billboard) end
+            end
+        end)
+    end
+    
+    -- Remove ESP (safe - destroys instances directly)
+    local function removeVardohusESP(item, espData)
+        local data = espData[item]
+        if not data then return end
+        -- Disable visuals FIRST so they disappear immediately even if Destroy fails
+        if data.highlight then pcall(function() data.highlight.Enabled = false end) end
+        if data.billboard then pcall(function() data.billboard.Enabled = false end) end
+        -- Detach from game hierarchy before destroying
+        if data.highlight then pcall(function() data.highlight.Parent = nil end) end
+        if data.billboard then pcall(function() data.billboard.Parent = nil end) end
+        -- Now destroy
+        if data.highlight then pcall(function() data.highlight:Destroy() end) end
+        if data.billboard then pcall(function() data.billboard:Destroy() end) end
+        data.highlight = nil
+        data.billboard = nil
+        data.label = nil
+        data.distLabel = nil
+        espData[item] = nil
+        ESPPendingRemoval[item] = nil
+    end
+    
+    -- Safe clear all ESP from a table (collect first to avoid modifying during iteration)
+    local function clearESPData(espData)
+        local toRemove = {}
+        for item in pairs(espData) do
+            table.insert(toRemove, item)
+        end
+        for _, item in ipairs(toRemove) do
+            removeVardohusESP(item, espData)
+        end
+    end
+    
+    -- Collect Vardohus items (same pattern as zombie ESP CollectZombies)
+    -- PERFORMANCE: Results are cached to avoid expensive GetDescendants() every scan
+    local function CollectVardohusItems(forceRefresh)
+        -- Cache Vardohus reference
+        if not cachedVardohusRef or not cachedVardohusRef.Parent then
+            cachedVardohusRef = Workspace:FindFirstChild("Vardohus Fortress")
+        end
+        if not cachedVardohusRef then return {}, {} end
+        
+        local now = tick()
+        -- Return cached results if still fresh (items are static, no need to rescan often)
+        if not forceRefresh and (now - lastItemCollectTime) < ITEM_COLLECT_INTERVAL then
+            return cachedRoundshots, cachedSwabs
+        end
+        lastItemCollectTime = now
+        
+        local roundshots = {}
+        local swabs = {}
+        
+        -- Collect all descendants once (expensive operation, cached for ITEM_COLLECT_INTERVAL)
+        local descendants = cachedVardohusRef:GetDescendants()
+        for _, obj in ipairs(descendants) do
+            if obj:IsA("Model") then
+                local name = obj.Name:lower()
+                -- Check for 12 lb. Roundshots
+                if name:find("12 lb") or name:find("roundshot") then
+                    table.insert(roundshots, obj)
+                -- Check for Swab
+                elseif name:find("swab") then
+                    table.insert(swabs, obj)
+                end
+            end
+        end
+        
+        -- Cache the results
+        cachedRoundshots = roundshots
+        cachedSwabs = swabs
+        
+        return roundshots, swabs
+    end
+    
+    -- Scan and create ESP (same pattern as zombie ESP ScanAll)
+    local function ScanAllVardohus()
+        local now = tick()
+        
+        -- Throttle scanning (same as zombie ESP)
+        if now - lastVardohusScan < VARDOHUS_SCAN_INTERVAL then
+            return
+        end
+        lastVardohusScan = now
+        
+        local roundshots, swabs = CollectVardohusItems()
+        
+        -- Update camera cache (same as zombie ESP)
+        if now - lastCameraCacheTime >= CAMERA_CACHE_INTERVAL then
+            local cam = workspace.CurrentCamera
+            cachedCameraPos = cam and cam.CFrame.Position or Vector3.new(0, 0, 0)
+            lastCameraCacheTime = now
+        end
+        
+        -- Build item sets for fast lookups (same pattern as zombie ESP)
+        local roundshotSet = {}
+        for _, r in ipairs(roundshots) do
+            roundshotSet[r] = true
+        end
+        local swabSet = {}
+        for _, s in ipairs(swabs) do
+            swabSet[s] = true
+        end
+        
+        -- Process Roundshots ESP
+        if roundshotESPEnabled then
+            -- Safe remove: collect first, then remove
+            local toRemove = {}
+            for item in pairs(roundshotESPData) do
+                if not roundshotSet[item] then
+                    table.insert(toRemove, item)
+                end
+            end
+            for _, item in ipairs(toRemove) do
+                removeVardohusESP(item, roundshotESPData)
+            end
+            
+            -- Add ESP for new items (with batch limiting like zombie ESP)
+            local created = 0
+            for _, item in ipairs(roundshots) do
+                if created >= VARDOHUS_SCAN_BATCH_SIZE then break end
+                -- Re-check flag here: the toggle may have flipped while we were iterating
+                if not roundshotESPEnabled then clearESPData(roundshotESPData) break end
+                if not roundshotESPData[item] then
+                    local itemPart = GetItemPart(item)
+                    if itemPart then
+                        local dist = (cachedCameraPos - itemPart.Position).Magnitude
+                        if dist <= VARDOHUS_CREATION_MAX_DISTANCE then
+                            createVardohusESP(item, roundshotESPData, ROUNDSHOT_COLOR, "12 lb. Roundshots")
+                            created = created + 1
+                        end
+                    end
+                end
+            end
+        else
+            clearESPData(roundshotESPData)
+        end
+        
+        -- Process Swab ESP (same logic)
+        if swabESPEnabled then
+            local toRemove = {}
+            for item in pairs(swabESPData) do
+                if not swabSet[item] then
+                    table.insert(toRemove, item)
+                end
+            end
+            for _, item in ipairs(toRemove) do
+                removeVardohusESP(item, swabESPData)
+            end
+            
+            local created = 0
+            for _, item in ipairs(swabs) do
+                if created >= VARDOHUS_SCAN_BATCH_SIZE then break end
+                -- Re-check flag here: the toggle may have flipped while we were iterating
+                if not swabESPEnabled then clearESPData(swabESPData) break end
+                if not swabESPData[item] then
+                    local itemPart = GetItemPart(item)
+                    if itemPart then
+                        local dist = (cachedCameraPos - itemPart.Position).Magnitude
+                        if dist <= VARDOHUS_CREATION_MAX_DISTANCE then
+                            createVardohusESP(item, swabESPData, SWAB_COLOR, "Swab")
+                            created = created + 1
+                        end
+                    end
+                end
+            end
+        else
+            clearESPData(swabESPData)
+        end
+    end
+    
+    -- Update ESP visuals at capped rate
+    -- PERFORMANCE: Uses Heartbeat instead of RenderStepped (doesn't need frame sync)
+    local _vardohusLastUpdate = 0
+    local VARDOHUS_UPDATE_INTERVAL = 0.25 -- 4fps is plenty for static item ESP (was 0.1)
+    local function UpdateAllVardohus()
+        local now = tick()
+        if now - _vardohusLastUpdate < VARDOHUS_UPDATE_INTERVAL then return end
+        _vardohusLastUpdate = now
+
+        local Camera = workspace.CurrentCamera
+        if not Camera then return end
+        local cameraPos = Camera.CFrame.Position
+        
+        local function updateTable(espData, enabled)
+            local toRemove = {}
+            for item, data in pairs(espData) do
+                if not item or not item.Parent then
+                    -- Grace period before removing
+                    if not ESPPendingRemoval[item] then
+                        ESPPendingRemoval[item] = now
+                    elseif (now - ESPPendingRemoval[item]) >= ESP_REMOVAL_GRACE_PERIOD then
+                        table.insert(toRemove, item)
+                    end
+                    if data.highlight then data.highlight.Enabled = false end
+                    if data.billboard then data.billboard.Enabled = false end
+                elseif not enabled then
+                    -- ESP disabled – destroy immediately, don't just hide
+                    table.insert(toRemove, item)
+                else
+                    if ESPPendingRemoval[item] then ESPPendingRemoval[item] = nil end
+                    
+                    local adornee = data.billboard and data.billboard.Adornee
+                    if not adornee or not adornee.Parent then
+                        local newPart = GetItemPart(item)
+                        if newPart then
+                            if data.billboard then data.billboard.Adornee = newPart end
+                            adornee = newPart
+                        else
+                            table.insert(toRemove, item)
+                        end
+                    end
+                    
+                    if adornee then
+                        local dist = (cameraPos - adornee.Position).Magnitude
+                        local maxDist = data.maxDistance or VARDOHUS_MAX_DISTANCE
+                        local visible = dist <= maxDist
+                        
+                        if data.highlight then data.highlight.Enabled = visible end
+                        if data.billboard then
+                            data.billboard.Enabled = visible
+                            if visible and data.distLabel then
+                                data.distLabel.Text = math.floor(dist) .. " studs"
+                            end
+                        end
+                    end
+                end
+            end
+            -- Remove dead / disabled items safely after iteration
+            for _, item in ipairs(toRemove) do
+                removeVardohusESP(item, espData)
+            end
+        end
+        
+        updateTable(roundshotESPData, roundshotESPEnabled)
+        updateTable(swabESPData, swabESPEnabled)
+    end
+    
+    -- PERFORMANCE: Single shared scan loop (instead of per-toggle loops)
+    local sharedScanThread = nil
+    
+    -- Start or stop the shared scan loop based on enabled state
+    local function ensureSharedScanLoop()
+        local anyEnabled = roundshotESPEnabled or swabESPEnabled
+        
+        if anyEnabled and not sharedScanThread then
+            sharedScanThread = task.spawn(function()
+                while roundshotESPEnabled or swabESPEnabled do
+                    pcall(ScanAllVardohus)
+                    task.wait(VARDOHUS_SCAN_INTERVAL)
+                end
+                sharedScanThread = nil
+            end)
+        end
+        -- If nothing is enabled, the loop will exit naturally on next iteration
+    end
+    
+    -- Force destroy all ESP instances in a table
+    local function forceDisableESP(espData)
+        local toRemove = {}
+        for item in pairs(espData) do
+            table.insert(toRemove, item)
+        end
+        for _, item in ipairs(toRemove) do
+            local data = espData[item]
+            if data then
+                if data.highlight then pcall(function() data.highlight.Enabled = false end) end
+                if data.billboard then pcall(function() data.billboard.Enabled = false end) end
+                if data.highlight then pcall(function() data.highlight.Parent = nil end) end
+                if data.billboard then pcall(function() data.billboard.Parent = nil end) end
+                if data.highlight then pcall(function() data.highlight:Destroy() end) end
+                if data.billboard then pcall(function() data.billboard:Destroy() end) end
+                data.highlight = nil
+                data.billboard = nil
+            end
+            espData[item] = nil
+        end
+    end
+    
+    -- Brute-force scan Vardohus Fortress and remove ALL orphaned ESP visuals from items
+    local function nukeAllVardohusESPVisuals()
+        pcall(function()
+            local fortress = Workspace:FindFirstChild("Vardohus Fortress")
+            if not fortress then return end
+            for _, desc in ipairs(fortress:GetDescendants()) do
+                if desc:IsA("Model") then
+                    local name = desc.Name:lower()
+                    if name:find("12 lb") or name:find("roundshot") or name:find("swab") then
+                        for _, child in ipairs(desc:GetChildren()) do
+                            if child:IsA("Highlight") or child:IsA("BillboardGui") then
+                                pcall(function() child.Enabled = false end)
+                                pcall(function() child.Parent = nil end)
+                                pcall(function() child:Destroy() end)
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end
+    
+    -- 12 lb. Roundshots ESP Toggle
+    local RoundshotESPToggle = VardohusSection:Toggle({
+        Title = "12 lb. Roundshots ESP",
+        Flag = "Vardohus_RoundshotESP",
+        Desc = "Shows red ESP for 12 lb. Roundshots (ammunition for cannon)",
+        Icon = "box",
+        Default = false,
+        Callback = function(state)
+            roundshotESPEnabled = state
+            if state then
+                -- Start update connection (Heartbeat, not RenderStepped - less overhead)
+                if not vardohusUpdateConn then
+                    vardohusUpdateConn = RunService.Heartbeat:Connect(UpdateAllVardohus)
+                end
+                
+                -- Start shared scan loop (one loop for both toggles)
+                ensureSharedScanLoop()
+                
+                WindUI:Notify({
+                    Title = "12 lb. Roundshots ESP",
+                    Content = "Enabled - Red markers show ammunition.",
+                    Duration = 3,
+                    Icon = "box"
+                })
+            else
+                -- Force destroy all roundshot ESP (uses full removeVardohusESP path)
+                clearESPData(roundshotESPData)
+                -- Reset to fresh weak table to discard any stale weak references
+                roundshotESPData = setmetatable({}, { __mode = "k" })
+                -- Invalidate item cache so next enable does a fresh collect
+                cachedRoundshots = {}
+                lastItemCollectTime = 0
+                
+                -- Single deferred cleanup pass (not multiple expensive nukeAll calls)
+                task.defer(function()
+                    if not roundshotESPEnabled then
+                        nukeAllVardohusESPVisuals()
+                    end
+                end)
+                
+                -- Stop update connection if swab also disabled
+                if not swabESPEnabled then
+                    if vardohusUpdateConn then
+                        vardohusUpdateConn:Disconnect()
+                        vardohusUpdateConn = nil
+                    end
+                    cachedVardohusRef = nil
+                end
+            end
+        end
+    })
+    _G.KatchiToggleElements.RoundshotESP = RoundshotESPToggle
+    
+    -- Swab ESP Toggle
+    local SwabESPToggle = VardohusSection:Toggle({
+        Title = "Swab ESP (Yellow)",
+        Flag = "Vardohus_SwabESP",
+        Desc = "Shows yellow ESP for Swab items.",
+        Icon = "droplet",
+        Default = false,
+        Callback = function(state)
+            swabESPEnabled = state
+            if state then
+                -- Start update connection (Heartbeat, not RenderStepped - less overhead)
+                if not vardohusUpdateConn then
+                    vardohusUpdateConn = RunService.Heartbeat:Connect(UpdateAllVardohus)
+                end
+                
+                -- Start shared scan loop (one loop for both toggles)
+                ensureSharedScanLoop()
+                
+                WindUI:Notify({
+                    Title = "Swab ESP",
+                    Content = "Enabled - Yellow markers show swabs.",
+                    Duration = 3,
+                    Icon = "droplet"
+                })
+            else
+                -- Force destroy all swab ESP (uses full removeVardohusESP path)
+                clearESPData(swabESPData)
+                -- Reset to fresh weak table to discard any stale weak references
+                swabESPData = setmetatable({}, { __mode = "k" })
+                -- Invalidate item cache so next enable does a fresh collect
+                cachedSwabs = {}
+                lastItemCollectTime = 0
+                
+                -- Single deferred cleanup pass (not multiple expensive nukeAll calls)
+                task.defer(function()
+                    if not swabESPEnabled then
+                        nukeAllVardohusESPVisuals()
+                    end
+                end)
+                
+                -- Stop update connection if roundshot also disabled
+                if not roundshotESPEnabled then
+                    if vardohusUpdateConn then
+                        vardohusUpdateConn:Disconnect()
+                        vardohusUpdateConn = nil
+                    end
+                    cachedVardohusRef = nil
+                end
+            end
+        end
+    })
+    _G.KatchiToggleElements.SwabESP = SwabESPToggle
+    
+    -- Cleanup on respawn
+    LocalPlayer.CharacterAdded:Connect(function()
+        roundshotESPEnabled = false
+        swabESPEnabled = false
+        
+        -- Stop shared scan loop (it will exit naturally since both flags are false)
+        if sharedScanThread then
+            pcall(function() task.cancel(sharedScanThread) end)
+            sharedScanThread = nil
+        end
+        
+        clearESPData(roundshotESPData)
+        clearESPData(swabESPData)
+        roundshotESPData = setmetatable({}, { __mode = "k" })
+        swabESPData = setmetatable({}, { __mode = "k" })
+        
+        -- Single cleanup pass (not multiple)
+        nukeAllVardohusESPVisuals()
+        
+        if vardohusUpdateConn then
+            vardohusUpdateConn:Disconnect()
+            vardohusUpdateConn = nil
+        end
+        
+        -- Invalidate all caches
+        cachedVardohusRef = nil
+        cachedRoundshots = {}
+        cachedSwabs = {}
+        lastItemCollectTime = 0
+        lastVardohusScan = 0
+        
+        if RoundshotESPToggle then pcall(function() RoundshotESPToggle:SetValue(false) end) end
+        if SwabESPToggle then pcall(function() SwabESPToggle:SetValue(false) end) end
+    end)
+    
+    -- ===== END VARDOHUS FORTRESS FEATURES =====
+    
+    -- ===== SAINT PETERSBURG MAP FEATURES =====
+    local SaintPetersburgSection = MapsHacksTab:Section({
+        Title = "Saint Petersburg",
+        Icon = "shopping-cart",
+        Opened = false
+    })
+
+    local STPETE_ITEMS = {
+        "LampLighter",
+        "GrenadeBox",
+        "BandageBox",
+        "CanisterShot",
+        "Roundshot",
+    }
+
+    local selectedSupply = "LampLighter"
+
+    SaintPetersburgSection:Dropdown({
+        Title = "Supply Item",
+        Flag = "StPete_SupplyItem",
+        Desc = "Select the item to purchase from Hobo's Shop even when he isn't even there.",
+        Values = STPETE_ITEMS,
+        Value = "LampLighter",
+        Multi = false,
+        Callback = function(selection)
+            selectedSupply = tostring(selection or "LampLighter")
+        end
+    })
+
+    SaintPetersburgSection:Button({
+        Title = "Buy Supply",
+        Desc = "Purchases the selected item",
+        Icon = "shopping-cart",
+        Callback = function()
+            if not selectedSupply or selectedSupply == "" then
+                WindUI:Notify({
+                    Title = "Saint Petersburg",
+                    Content = "Select an item first!",
+                    Duration = 2,
+                    Icon = "alert-circle"
+                })
+                return
+            end
+            local success, err = pcall(function()
+                local Event = game:GetService("ReplicatedStorage").Remotes.HoldoutOrderShopEvent
+                Event:FireServer("BuySupply", selectedSupply)
+            end)
+            if success then
+                WindUI:Notify({
+                    Title = "Saint Petersburg",
+                    Content = "Purchased: " .. selectedSupply,
+                    Duration = 2,
+                    Icon = "check"
+                })
+            else
+                WindUI:Notify({
+                    Title = "Saint Petersburg",
+                    Content = "Purchase failed — wrong map?",
+                    Duration = 3,
+                    Icon = "x"
+                })
+            end
+        end
+    })
+
+    -- ===== END SAINT PETERSBURG FEATURES =====
 end
 
 task.wait(0.1) -- Delay to prevent lag
@@ -18864,23 +20764,25 @@ do -- // PVP Tab
     -- PVP Kill Aura (Melee)
     local pvpMeleeEnabled = false
     local pvpMeleeConn = nil
-    
+
     local function getMeleeWeapon()
         local char = LocalPlayer.Character
         if not char then return nil end
-        
+
+        -- Check equipped
         for _, tool in ipairs(char:GetChildren()) do
             if tool:IsA("Tool") and tool:FindFirstChild("MeleeBase") then
                 return tool
             end
         end
-        
+
+        -- Check backpack
         for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
             if tool:IsA("Tool") and tool:FindFirstChild("MeleeBase") then
                 return tool
             end
         end
-        
+
         return nil
     end
     
@@ -20722,7 +22624,7 @@ do -- // Final task.spawn and connects
             Icon = "zap",
         })
 
-    print("Katchi Hub v4.7 successfully loaded!")
+    print("Katchi Hub v4.8 successfully loaded!")
     print("Made by Yuki")
     print("i like dawgs!")
 end -- end of Final block
@@ -20735,6 +22637,21 @@ do -- // Changelog Popup UI
     -- Changelog entries (each entry is a version with its changes)
     -- Format: { version = "vX.X.X", date = "Date", changes = { {type = "fix/feature/update", text = "Description"}, ... } }
     local CHANGELOG_ENTRIES = {
+                                                                         {
+            version = "v4.8",
+            date = "February 2026",
+            changes = {
+                {type = "feature", text = "Added Background Music!"},
+                {type = "feature", text = "Added Walk Noclip Bypass!"},
+                {type = "feature", text = "Added Vardohus Fortress Map Hack!"},
+                {type = "feature", text = "Added Saint Petersburg Map Hack!"},
+                {type = "feature", text = "Added FPS Booster!"},
+                {type = "feature", text = "Added Self Esp!"},
+                {type = "fix", text = "Optimized Script."},
+                {type = "fix", text = "Fixed Minor Bugs."},
+                {type = "fix", text = "Improved Killaura."},
+            }
+        },
                                                                          {
             version = "v4.7",
             date = "January 2026",
@@ -20750,7 +22667,7 @@ do -- // Changelog Popup UI
                 {type = "feature", text = "Added PVP Feature!"},
                 {type = "feature", text = "Added Streamer Mode!"},
             }
-        },
+        },  
                                                                  {
             version = "v4.5",
             date = "January 2026",
