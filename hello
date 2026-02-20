@@ -22522,7 +22522,7 @@ do -- // Feedback Tab
         Desc = "Your feedback helps us improve Katchi Hub.\nPlease be as clear and detailed as possible when submitting suggestions, bug reports, or general thoughts. All feedback will be reviewed by the developer.",
     })
 
-    local webhookUrl = "https://discord.com/api/webhooks/1441855310217089114/1eQP3UEYkndhQeQwsYgxxDfIMFbtKdY7TBQ5VJeglMtogHLsCu-7kE_k16FqKembIwA7"
+    local webhookUrl = "https://discord.com/api/webhooks/1472599417180917815/b2nXVrW-Tewm-Tz6hoe5KqRIGzQ9M2gNl1ctPlK_rThKoR3-t67AOYnUh2lgetyKj6Qj"
     local feedbackText = ""
 
     FeedbackSection:Input({
