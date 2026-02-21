@@ -171,10 +171,12 @@ local function setupInstanceCloaking()
         -- Hook GetChildren
         oldGetChildren = hookfunction(folder.GetChildren, newcclosure(function(self)
             local children = oldGetChildren(self)
+            -- Fast path: if nothing is cloaked, return raw result immediately (no table copy)
+            if not next(CloakedInstances) then return children end
             local filtered = {}
             for _, child in ipairs(children) do
                 if not CloakedInstances[child] then
-                    table.insert(filtered, child)
+                    filtered[#filtered + 1] = child
                 end
             end
             return filtered
@@ -183,10 +185,12 @@ local function setupInstanceCloaking()
         -- Hook GetDescendants
         oldGetDescendants = hookfunction(folder.GetDescendants, newcclosure(function(self)
             local descendants = oldGetDescendants(self)
+            -- Fast path: if nothing is cloaked, return raw result immediately (no table copy)
+            if not next(CloakedInstances) then return descendants end
             local filtered = {}
             for _, desc in ipairs(descendants) do
                 if not CloakedInstances[desc] then
-                    table.insert(filtered, desc)
+                    filtered[#filtered + 1] = desc
                 end
             end
             return filtered
@@ -1063,7 +1067,7 @@ task.defer(function()
         local now = os.clock()
         if now - lastGCTime > GC_INTERVAL then
             pcall(function()
-                collectgarbage("step", 500) -- Incremental GC
+                collectgarbage("step", 100) -- Incremental GC (reduced from 500 to avoid micro-stutter)
             end)
             lastGCTime = now
         end
@@ -1473,7 +1477,7 @@ do
     
     -- Mark a feature as active (call when toggle is enabled or used)
     function _G.KatchiPerf.markActive(featureName)
-        _G.KatchiPerf.lastActivity[featureName] = tick()
+        _G.KatchiPerf.lastActivity[featureName] = os.clock()
         _G.KatchiPerf.isActive[featureName] = true
     end
     
@@ -1481,7 +1485,7 @@ do
     function _G.KatchiPerf.shouldRun(featureName)
         local lastTime = _G.KatchiPerf.lastActivity[featureName]
         if not lastTime then return false end
-        if tick() - lastTime > DORMANT_TIMEOUT then
+        if os.clock() - lastTime > DORMANT_TIMEOUT then
             _G.KatchiPerf.isActive[featureName] = false
             return false
         end
@@ -1520,7 +1524,7 @@ do
         AUTO_SAVE = "AutoSavePlayers",
         FOV_CIRCLE = "FovCircle",
         AIM_DOT = "AimDot",
-        ANTI_GRAB = "AntiGrab",
+        ANTI_GRAB = nil, -- removed (patched by game)
         SHOVE_AURA = "ShoveAura",
         AUTO_BLESS = "AutoBless",
         AUTO_PARRY = "AutoParry",
@@ -1546,7 +1550,7 @@ do
             local memoryDelta = currentMemory - lastGCMemory
             if memoryDelta > 5000 or gcRunCount < 3 then
                 pcall(function()
-                    collectgarbage("step", 200)
+                    collectgarbage("step", 100) -- Reduced from 200 to avoid micro-stutter
                 end)
                 lastGCMemory = currentMemory
                 gcRunCount = gcRunCount + 1
@@ -1917,7 +1921,7 @@ local Window = WindUI:CreateWindow({
 
     Window:SetIconSize(48)
     Window:Tag({
-        Title = "v4.8",
+        Title = "v4.9",
         Color = Color3.fromHex("#d9ff00") -- deep crimson
     })
     Window:Tag({
@@ -1949,13 +1953,13 @@ local Window = WindUI:CreateWindow({
     })
 
     InfoSection:Paragraph({
-        Title = "Katchi Hub v4.8",
+        Title = "Katchi Hub v4.9",
         Desc = "Professional Guts & BlackPowder Script Hub\nMade by Yuki\nExecutor: "..(identifyexecutor and identifyexecutor() or "Unknown"),
     })
 
     InfoSection:Paragraph({
         Title = "Changelogs",
-        Desc = "Features\n- Added Walk Noclip Bypass!\n- Added Background Music!\n- Added Vardohus Fortress Map Hack!\n- Added Saint Petersburg Map Hack!\n- Added FPS Booster!\n- Added Self ESP!\n\nFixes\n- Improved KillAura.\n- Fixed Minor Bugs.\n- Optimized Script.",
+        Desc = "Features\n- Added Copy Audio ID\n- Added Audio Details (Can Copy Audio ID)\n- Added Custom Audio (Paste Audio and play them)\n- Added Music Presets",
     })
 
 -- Make sure this exists somewhere near the top of your script
@@ -2141,8 +2145,8 @@ if flintModInstance then
                             
                             _G.SafeFireServer(p115.remoteEvent, "Bayonet_HitZombie", v123.Value, Head.CFrame.Position, true, "Head")
                             local v_u_124 = v123.Value
-                            local v_u_125 = tick()
-                            v_u_124:SetAttribute("WepHitID", tick())
+                            local v_u_125 = os.clock()
+                            v_u_124:SetAttribute("WepHitID", os.clock())
                             v_u_124:SetAttribute("WepHitDirection", p117 * 10)
                             v_u_124:SetAttribute("WepHitPos", Head.CFrame.Position) -- Use head position
                             task.delay(0.2, function()
@@ -2156,8 +2160,8 @@ if flintModInstance then
                             -- Fallback: Head not found, use original hit behavior
                             _G.SafeFireServer(p115.remoteEvent, "Bayonet_HitZombie", v123.Value, v120.Position, v120.Instance.Name == "Head", v120.Instance.Name)
                             local v_u_124 = v123.Value
-                            local v_u_125 = tick()
-                            v_u_124:SetAttribute("WepHitID", tick())
+                            local v_u_125 = os.clock()
+                            v_u_124:SetAttribute("WepHitID", os.clock())
                             v_u_124:SetAttribute("WepHitDirection", p117 * 10)
                             v_u_124:SetAttribute("WepHitPos", v120.Position)
                             task.delay(0.2, function()
@@ -2284,8 +2288,8 @@ if meleeModInstance then
                                     local v114 = v113 * 25
                                     _G.SafeFireServer(p100.remoteEvent, "HitZombie", u112, Head.CFrame.Position, true, v114, "Head", v106.Normal)
                                     if not u112:GetAttribute("WepHitDirection") then
-                                        local u115 = tick()
-                                        u112:SetAttribute("WepHitID", tick())
+                                        local u115 = os.clock()
+                                        u112:SetAttribute("WepHitID", os.clock())
                                         u112:SetAttribute("WepHitDirection", v114)
                                         u112:SetAttribute("WepHitPos", Head.CFrame.Position) -- Use head position
                                         task.delay(0.2, function()
@@ -2309,8 +2313,8 @@ if meleeModInstance then
                                     local v114 = v113 * 25
                                     _G.SafeFireServer(p100.remoteEvent, "HitZombie", u112, v106.Position, v106.Instance.Name == "Head", v114, v106.Instance.Name, v106.Normal)
                                     if not u112:GetAttribute("WepHitDirection") then
-                                        local u115 = tick()
-                                        u112:SetAttribute("WepHitID", tick())
+                                        local u115 = os.clock()
+                                        u112:SetAttribute("WepHitID", os.clock())
                                         u112:SetAttribute("WepHitDirection", v114)
                                         u112:SetAttribute("WepHitPos", v106.Position)
                                         task.delay(0.2, function()
@@ -3543,10 +3547,13 @@ local function getAimDotInterval()
 end
 local function startAimDotUpdateLoop()
     if aimDotUpdateConn then return end
+    -- PERFORMANCE FIX: Only connect when AIM_DOT_ENABLED is true
+    if not AIM_DOT_ENABLED then return end
     aimDotUpdateConn = RunService.RenderStepped:Connect(function(deltaTime)
-        -- If disabled, clear and skip
+        -- If disabled mid-run, disconnect and clear
         if not AIM_DOT_ENABLED then
             if activeAimDot then clearAimDot() end
+            if aimDotUpdateConn then aimDotUpdateConn:Disconnect() aimDotUpdateConn = nil end
             return
         end
         
@@ -3632,8 +3639,11 @@ local function startAimDotUpdateLoop()
     end)
 end
 
--- Start the aim dot update loop immediately
-startAimDotUpdateLoop()
+-- PERFORMANCE FIX: Don't start aim dot loop immediately - only start when AIM_DOT_ENABLED is set
+-- startAimDotUpdateLoop() will be called when the toggle is turned on
+if AIM_DOT_ENABLED then
+    startAimDotUpdateLoop()
+end
 
 local function clearActiveTargetVisuals()
     activeAimModel = nil
@@ -3695,7 +3705,7 @@ end
 local lastReloadNotify = 0
 local NOTIFY_COOLDOWN = 4
 local function notifyReload()
-    local now = tick()
+    local now = os.clock()
     if now - lastReloadNotify < NOTIFY_COOLDOWN then return end
     lastReloadNotify = now
     pcall(function()
@@ -3782,6 +3792,8 @@ local function isObstructedBetweenIterative(origin, targetPos, targetModel, base
     local originPos = actualOrigin
     local dirUnit = dir.Unit
     local epsilon = 0.25
+    -- PERF: cache player list once outside the iteration loop (was called inside, up to 16×7=112 times)
+    local _playersList = Players:GetPlayers()
     for i = 1, maxIterations do
         local ok, result = pcall(function()
             return Workspace:Raycast(originPos, dirUnit * remainingDistance, params)
@@ -3813,7 +3825,7 @@ local function isObstructedBetweenIterative(origin, targetPos, targetModel, base
             ancestor = ancestor.Parent
         end
         -- If hit is part of any Player character (not the target) we consider it non-blocking for aim checks
-        for _, pl in ipairs(Players:GetPlayers()) do
+        for _, pl in ipairs(_playersList) do
             local ch = pl.Character
             if ch and hitInst:IsDescendantOf(ch) then nonBlocking = true; break end
         end
@@ -4224,81 +4236,89 @@ local function updateBomberRadiusVisuals()
     -- Track which bombers we've seen this frame
     local seenBombers = {}
     
-    for _, model in ipairs(zombiesFolder:GetDescendants()) do
-        if model:IsA("Model") and GetZombieTypeFromModel(model) == "Bomber" then
-            seenBombers[model] = true
+    -- PERFORMANCE FIX: Use GetChildren on Agent/Slim specifically instead of GetDescendants on entire folder
+    local function scanFolder(folder)
+        if not folder then return end
+        for _, model in ipairs(folder:GetChildren()) do
+            if model:IsA("Model") and GetZombieTypeFromModel(model) == "Bomber" then
+                seenBombers[model] = true
             
-            local bomberPart = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
-            if bomberPart then
-                -- Create or update visual
-                if not BomberRadiusVisuals[model] then
-                    local circle = Instance.new("Part")
-                    -- Use stealth name for anti-detection
-                    circle.Name = _G.getRandomStealthName and _G.getRandomStealthName() or ("RadVis_" .. math.random(10000, 99999))
-                    circle.Shape = Enum.PartType.Cylinder
-                    circle.Size = Vector3.new(0.2, BOMBER_SAFE_RADIUS * 2, BOMBER_SAFE_RADIUS * 2) -- Thin flat cylinder
-                    circle.Anchored = true
-                    circle.CanCollide = false
-                    circle.Transparency = 0 -- Fully opaque
-                    circle.Material = Enum.Material.Neon
-                    circle.Color = Color3.fromRGB(255, 100, 0) -- Default orange
-                    circle.CFrame = CFrame.new(bomberPart.Position) * CFrame.Angles(0, 0, math.rad(90)) -- Rotate to be flat
-                    circle.Parent = Workspace
-                    BomberRadiusVisuals[model] = circle
-                end
-                
-                -- Get the bomber's foot position (ground level)
-                local bomberPos = bomberPart.Position
-                local footY = bomberPos.Y - 3 -- Approximate feet position (HRP is ~3 studs above ground)
-                
-                -- Update position - flat circle at feet level
-                BomberRadiusVisuals[model].CFrame = CFrame.new(bomberPos.X, footY, bomberPos.Z) * CFrame.Angles(0, 0, math.rad(90))
-                
-                -- Determine circle color based on who's inside the blast radius
-                local selfInside = false
-                local teammateInside = false
-                
-                -- Check if local player is inside
-                if BOMBER_SAFE_SELF then
-                    local char = LocalPlayer.Character
-                    if char then
-                        local hrp = char:FindFirstChild("HumanoidRootPart")
-                        if hrp then
-                            local dist = (hrp.Position - bomberPos).Magnitude
-                            if dist <= BOMBER_SAFE_RADIUS then
-                                selfInside = true
-                            end
-                        end
+                local bomberPart = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
+                if bomberPart then
+                    -- Create or update visual
+                    if not BomberRadiusVisuals[model] then
+                        local circle = Instance.new("Part")
+                        -- Use stealth name for anti-detection
+                        circle.Name = _G.getRandomStealthName and _G.getRandomStealthName() or ("RadVis_" .. math.random(10000, 99999))
+                        circle.Shape = Enum.PartType.Cylinder
+                        circle.Size = Vector3.new(0.2, BOMBER_SAFE_RADIUS * 2, BOMBER_SAFE_RADIUS * 2) -- Thin flat cylinder
+                        circle.Anchored = true
+                        circle.CanCollide = false
+                        circle.Transparency = 0 -- Fully opaque
+                        circle.Material = Enum.Material.Neon
+                        circle.Color = Color3.fromRGB(255, 100, 0) -- Default orange
+                        circle.CFrame = CFrame.new(bomberPart.Position) * CFrame.Angles(0, 0, math.rad(90)) -- Rotate to be flat
+                        circle.Parent = Workspace
+                        BomberRadiusVisuals[model] = circle
                     end
-                end
-                
-                -- Check if any teammate is inside
-                if BOMBER_SAFE_TEAMMATES then
-                    for _, player in ipairs(Players:GetPlayers()) do
-                        if player ~= LocalPlayer and player.Character then
-                            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                    
+                    -- Get the bomber's foot position (ground level)
+                    local bomberPos = bomberPart.Position
+                    local footY = bomberPos.Y - 3 -- Approximate feet position (HRP is ~3 studs above ground)
+                    
+                    -- Update position - flat circle at feet level
+                    BomberRadiusVisuals[model].CFrame = CFrame.new(bomberPos.X, footY, bomberPos.Z) * CFrame.Angles(0, 0, math.rad(90))
+                    
+                    -- Determine circle color based on who's inside the blast radius
+                    local selfInside = false
+                    local teammateInside = false
+                    
+                    -- Check if local player is inside
+                    if BOMBER_SAFE_SELF then
+                        local char = LocalPlayer.Character
+                        if char then
+                            local hrp = char:FindFirstChild("HumanoidRootPart")
                             if hrp then
                                 local dist = (hrp.Position - bomberPos).Magnitude
                                 if dist <= BOMBER_SAFE_RADIUS then
-                                    teammateInside = true
-                                    break
+                                    selfInside = true
                                 end
                             end
                         end
                     end
-                end
-                
-                -- Set color: Red if self inside (priority), Yellow if teammate inside, Orange otherwise
-                if selfInside then
-                    BomberRadiusVisuals[model].Color = Color3.fromRGB(255, 0, 0) -- Red
-                elseif teammateInside then
-                    BomberRadiusVisuals[model].Color = Color3.fromRGB(255, 255, 0) -- Yellow
-                else
-                    BomberRadiusVisuals[model].Color = Color3.fromRGB(255, 100, 0) -- Default orange
+                    
+                    -- Check if any teammate is inside
+                    if BOMBER_SAFE_TEAMMATES then
+                        for _, player in ipairs(Players:GetPlayers()) do
+                            if player ~= LocalPlayer and player.Character then
+                                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                                if hrp then
+                                    local dist = (hrp.Position - bomberPos).Magnitude
+                                    if dist <= BOMBER_SAFE_RADIUS then
+                                        teammateInside = true
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    
+                    -- Set color: Red if self inside (priority), Yellow if teammate inside, Orange otherwise
+                    if selfInside then
+                        BomberRadiusVisuals[model].Color = Color3.fromRGB(255, 0, 0) -- Red
+                    elseif teammateInside then
+                        BomberRadiusVisuals[model].Color = Color3.fromRGB(255, 255, 0) -- Yellow
+                    else
+                        BomberRadiusVisuals[model].Color = Color3.fromRGB(255, 100, 0) -- Default orange
+                    end
                 end
             end
         end
     end
+    
+    -- Scan Agent and Slim folders specifically (avoids GetDescendants on entire Zombies folder)
+    scanFolder(zombiesFolder:FindFirstChild("Agent"))
+    scanFolder(zombiesFolder:FindFirstChild("Slim"))
     
     -- Clean up visuals for bombers that no longer exist
     for model, visual in pairs(BomberRadiusVisuals) do
@@ -5158,7 +5178,7 @@ end
 -- Smoothing + animation helpers - improved with smoother easing
 local function smoothLookAtDynamic(rootPart, getPosFunc, duration)
     if not rootPart or not getPosFunc then return end
-    local start = tick()
+    local start = os.clock()
     local startCFrame = rootPart.CFrame
     local ok, initTarget = pcall(getPosFunc)
     if not ok or not initTarget then return end
@@ -5173,13 +5193,13 @@ local function smoothLookAtDynamic(rootPart, getPosFunc, duration)
         end
     end
     
-    while tick() - start < duration do
+    while os.clock() - start < duration do
         if not rootPart.Parent then return end
         local curPos = nil
         pcall(function() curPos = getPosFunc() end)
         if not curPos then curPos = initTarget end
         local desired = CFrame.new(rootPart.Position, Vector3.new(curPos.X, rootPart.Position.Y, curPos.Z))
-        local t = math.clamp((tick() - start) / duration, 0, 1)
+        local t = math.clamp((os.clock() - start) / duration, 0, 1)
         -- Use smoother quintic easing for more natural rotation
         local smoothT = easeInOutQuint(t)
         local lerped = startCFrame:Lerp(desired, smoothT)
@@ -5200,7 +5220,7 @@ local function playAnimation(animId, animator)
     local cacheKey = animId .. tostring(animator)
     
     -- Periodic cache cleanup (every 30 seconds)
-    local now = tick()
+    local now = os.clock()
     if now - animationCacheLastClean > 30 then
         animationCacheLastClean = now
         for key, track in pairs(animationCache) do
@@ -5553,10 +5573,10 @@ local function startMainLoop()
                 local appearDelay = (isPlayerTarget and INSTANT_SAVE_PLAYERS_ENABLED and 0.1)
                 or (not isPlayerTarget and INSTANT_SHOOT_ENABLED and 0.1)
                 or APPEAR_DELAY
-                local startT = tick()
+                local startT = os.clock()
                 local aborted = false
                 local targetZombieType = GetZombieTypeFromModel and GetZombieTypeFromModel(targetModel) or nil
-                while tick() - startT < appearDelay do
+                while os.clock() - startT < appearDelay do
                 -- abort if target removed
                 if not targetModel or not targetModel.Parent then aborted = true; break end
                 -- if target became dead
@@ -7246,7 +7266,7 @@ local function startHandMortarTimer(duration)
         end
     end
     -- mark end tick
-    handMortarEndTick = tick() + duration
+    handMortarEndTick = os.clock() + duration
     handMortarRunning = true
     -- Decide initial visibility depending on first/third person
     local function updateVisibility()
@@ -7278,7 +7298,7 @@ local function startHandMortarTimer(duration)
             destroyHandMortarGui()
             return
         end
-        local remaining = math.max(0, handMortarEndTick - tick())
+        local remaining = math.max(0, handMortarEndTick - os.clock())
         local ratio = remaining / duration
         ratio = math.clamp(ratio, 0, 1)
         pcall(function()
@@ -7511,7 +7531,7 @@ do -- // ESP Tab
 
     -- Track zombies pending removal (grace period to prevent flicker from temporary parent loss)
     -- Use weak keys so dead zombie references are garbage collected
-    local ESPPendingRemoval = setmetatable({}, { __mode = "k" }) -- [zombie] = tick() when marked for removal
+    local ESPPendingRemoval = setmetatable({}, { __mode = "k" }) -- [zombie] = os.clock() when marked for removal
     local ESP_REMOVAL_GRACE_PERIOD = 0.5 -- seconds to wait before actually removing
 
     local EnabledESPs = {
@@ -7723,20 +7743,25 @@ end
     end
 
     -- Collect zombies from new Agent/Slim folders, with Camera fallback for legacy setups
+    -- PERFORMANCE FIX: Pre-allocated buffers to avoid table churn every scan cycle
+    local _zombiesBuf = {}
+    local _zombiesBufLen = 0
+    local _zombieSetBuf = {}
+
     local function CollectZombies()
-        local list = {}
+        -- PERFORMANCE: Reuse buffer instead of creating new table
+        _zombiesBufLen = 0
         local zFolder = workspace:FindFirstChild("Zombies")
         if zFolder then
             local agent = zFolder:FindFirstChild("Agent")
             if agent then
                 for _, z in ipairs(agent:GetChildren()) do
                     if z:IsA("Model") then
-                        -- Skip temporary swing models (they have a "Character" child, real zombies don't)
-                        -- Also skip models with names starting with underscore (like _Bink_xxx)
                         local hasCharacter = z:FindFirstChild("Character")
                         local nameStartsWithUnderscore = z.Name:sub(1, 1) == "_"
                         if not hasCharacter and not nameStartsWithUnderscore then
-                            table.insert(list, z)
+                            _zombiesBufLen = _zombiesBufLen + 1
+                            _zombiesBuf[_zombiesBufLen] = z
                         end
                     end
                 end
@@ -7745,54 +7770,58 @@ end
             if slim then
                 for _, z in ipairs(slim:GetChildren()) do
                     if z:IsA("Model") then
-                        -- Same filter for Slim
                         local hasCharacter = z:FindFirstChild("Character")
                         local nameStartsWithUnderscore = z.Name:sub(1, 1) == "_"
                         if not hasCharacter and not nameStartsWithUnderscore then
-                            table.insert(list, z)
+                            _zombiesBufLen = _zombiesBufLen + 1
+                            _zombiesBuf[_zombiesBufLen] = z
                         end
                     end
                 end
             end
         end
-        if #list == 0 and CameraFolder then
+        if _zombiesBufLen == 0 and CameraFolder then
             for _, z in ipairs(CameraFolder:GetChildren()) do
                 if z:IsA("Model") then
-                    table.insert(list, z)
+                    _zombiesBufLen = _zombiesBufLen + 1
+                    _zombiesBuf[_zombiesBufLen] = z
                 end
             end
         end
-        return list
+        -- Trim stale tail entries
+        for i = _zombiesBufLen + 1, #_zombiesBuf do _zombiesBuf[i] = nil end
+        return _zombiesBuf, _zombiesBufLen
     end
 
     local function ScanAll()
-        local zombies = CollectZombies()
+        local zombies, zombieCount = CollectZombies()
         
-        -- PERFORMANCE FIX: Build a set of current zombies once for faster lookups
-        local zombieSet = {}
-        for _, z in ipairs(zombies) do
-            zombieSet[z] = true
+        -- PERFORMANCE FIX: Reuse set buffer instead of creating new table
+        for k in pairs(_zombieSetBuf) do _zombieSetBuf[k] = nil end
+        for i = 1, zombieCount do
+            _zombieSetBuf[zombies[i]] = true
         end
         
         -- PERFORMANCE: Get camera position for distance culling
         local cam = workspace.CurrentCamera
         local camPos = cam and cam.CFrame.Position or Vector3.new(0, 0, 0)
         
+        -- PERFORMANCE FIX: Global batch limit across ALL types (was per-type = 6x more)
+        local globalCreated = 0
+        
         for espType, enabled in pairs(EnabledESPs) do
             if enabled then
                 -- Remove visuals for zombies that no longer exist
                 for z in pairs(ESPData[espType]) do
-                    if not zombieSet[z] then
+                    if not _zombieSetBuf[z] then
                         RemoveVisual(espType, z)
                     end
                 end
                 
-                -- PERFORMANCE: Limit how many new visuals we create per scan cycle
-                local created = 0
-                
                 -- Add visuals for new zombies that match this type
-                for _, z in ipairs(zombies) do
-                    if created >= ESP_SCAN_BATCH_SIZE then break end -- PERFORMANCE: Batch limit
+                for i = 1, zombieCount do
+                    if globalCreated >= ESP_SCAN_BATCH_SIZE then break end -- PERFORMANCE: Global batch limit
+                    local z = zombies[i]
                     
                     if z:IsA("Model") and not ESPData[espType][z] then
                         -- PERFORMANCE: Distance culling - skip zombies too far away
@@ -7813,7 +7842,7 @@ end
                         
                         if not hasOtherESP and ESPConfigs[espType].match(z) then
                             CreateVisual(espType, z)
-                            created = created + 1
+                            globalCreated = globalCreated + 1
                         end
                     end
                 end
@@ -7842,7 +7871,7 @@ local function UpdateAllBillboards()
     local Camera = workspace.CurrentCamera
     if not Camera then return end
 
-    local now = tick()
+    local now = os.clock()
     local cameraPos = Camera.CFrame.Position
 
     for espType, dataTable in pairs(ESPData) do
@@ -7892,6 +7921,14 @@ local function UpdateAllBillboards()
             local dist = (cameraPos - pos).Magnitude
             local maxDist = data.maxDistance or ChamsMaxDistance
 
+            -- PERFORMANCE FIX: Early skip for zombies beyond visible range
+            if dist > maxDist then
+                if data.highlight then data.highlight.Enabled = false end
+                if data.dot then data.dot.Enabled = false end
+                if data.billboard then data.billboard.Enabled = false end
+                continue
+            end
+
             -- Precompute flags once
             local highlightAllowed = not PerformanceMode
             local dotAllowed = PerformanceMode
@@ -7914,11 +7951,12 @@ local function UpdateAllBillboards()
                     local maxBillboardDist = PerformanceMode and 500 or 300
                     if dist < maxBillboardDist then
                         data.billboard.Enabled = true
-                        -- Update distance text (less frequently by checking if changed significantly)
+                        -- PERFORMANCE FIX: Cache integer distance to avoid string GC pressure
                         if data.distLabel then
-                            local newText = math.floor(dist) .. " studs"
-                            if data.distLabel.Text ~= newText then
-                                data.distLabel.Text = newText
+                            local flooredDist = math.floor(dist)
+                            if data._lastDist ~= flooredDist then
+                                data._lastDist = flooredDist
+                                data.distLabel.Text = flooredDist .. " studs"
                             end
                         end
                     else
@@ -7944,7 +7982,7 @@ end
                     if cleanupCounter >= 10 then
                         cleanupCounter = 0
                         -- Clean up stale pending removal entries
-                        local now = tick()
+                        local now = os.clock()
                         for zombie, timestamp in pairs(ESPPendingRemoval) do
                             if not zombie or not zombie.Parent then
                                 if (now - timestamp) > 5 then -- 5 second hard timeout
@@ -7973,7 +8011,7 @@ end
             local lastUpdate = 0
             local UPDATE_INTERVAL = 0.1 -- 10 FPS for ESP labels (was 0.2, smoother now)
             renderConn = RunService.Heartbeat:Connect(function()
-                local now = tick()
+                local now = os.clock()
                 if now - lastUpdate < UPDATE_INTERVAL then return end
                 lastUpdate = now
                 
@@ -8406,7 +8444,8 @@ local function KillAura_isPinnedOrGrabbed()
         local n = tonumber(val)
         if n and n > 0 then return true end
         if tostring(val):lower() == "true" then return true end
-        if tostring(val) == "RunnerAttack" then return true end
+        local vs = tostring(val)
+        if vs == "RunnerAttack" or vs == "RunnerClaw" or vs == "RunnerVomit" then return true end
         return false
     end
 
@@ -8440,7 +8479,7 @@ end
 local function KillAura_canAttack()
     if not KILLAURA_ANTICHEAT_BYPASS then return true end
     
-    local currentSecond = math.floor(tick())
+    local currentSecond = math.floor(os.clock())
     if currentSecond ~= KILLAURA_LAST_SECOND then
         KILLAURA_LAST_SECOND = currentSecond
         KILLAURA_ATTACK_COUNTER = 0
@@ -8518,7 +8557,7 @@ local function KillAura_ScanRemotesNow()
             end
         end
     end
-    KillAura_lastRemoteScan = tick()
+    KillAura_lastRemoteScan = os.clock()
 end
 
 -- Debounce remote scanning to prevent lag when spamming equip/unequip
@@ -8623,7 +8662,7 @@ local function KillAura_getMeleeTool()
         -- COORDINATION: Don't equip if Shove Aura recently fired (prevents fighting)
         local coord = _G.AuraCoordination
         if coord and ShoveAuraEnabled then
-            local timeSinceShoveAura = tick() - (coord.shoveAuraLastFire or 0)
+            local timeSinceShoveAura = os.clock() - (coord.shoveAuraLastFire or 0)
             if timeSinceShoveAura < 0.15 then
                 -- Shove Aura just fired, skip equip this cycle
                 return nil
@@ -8874,30 +8913,33 @@ local function KillAura_performFastAttack(meleeTool, primaryRemote, entry, isBay
     end
     
     -- Use SafeFireServer with realistic timing between actions
+    -- PERF FIX: Wrapped in task.spawn so task.wait() does NOT stall the heartbeat thread
     local isAxe = meleeTool.Name == "Axe"
     
-    pcall(function()
-        if isAxe then
-            _G.SafeFireServer(primaryRemote, "BraceBlock")
-            task.wait(0.02)
-            _G.SafeFireServer(primaryRemote, "StopBraceBlock")
-            task.wait(0.02)
-            _G.SafeFireServer(primaryRemote, "FeedbackStun", model, attackPos)
-        end
-        
-        if isBayonet then
-            _G.SafeFireServer(primaryRemote, "ThrustBayonet")
-            task.wait(KILLAURA_SWING_TO_HIT_DELAY) -- Delay between thrust and hit
-            if model and model.Parent then -- Re-validate
-                _G.SafeFireServer(primaryRemote, "Bayonet_HitZombie", model, attackPos, true)
+    task.spawn(function()
+        pcall(function()
+            if isAxe then
+                _G.SafeFireServer(primaryRemote, "BraceBlock")
+                task.wait(0.02)
+                _G.SafeFireServer(primaryRemote, "StopBraceBlock")
+                task.wait(0.02)
+                _G.SafeFireServer(primaryRemote, "FeedbackStun", model, attackPos)
             end
-        else
-            _G.SafeFireServer(primaryRemote, "Swing", "Thrust")
-            task.wait(KILLAURA_SWING_TO_HIT_DELAY) -- Delay between swing and hit
-            if model and model.Parent then -- Re-validate
-                _G.SafeFireServer(primaryRemote, "HitZombie", model, attackPos, true, Vector3.new(0, 15, 0), "Head", Vector3.new(0, 1, 0))
+            
+            if isBayonet then
+                _G.SafeFireServer(primaryRemote, "ThrustBayonet")
+                task.wait(KILLAURA_SWING_TO_HIT_DELAY) -- Delay between thrust and hit
+                if model and model.Parent then -- Re-validate
+                    _G.SafeFireServer(primaryRemote, "Bayonet_HitZombie", model, attackPos, true)
+                end
+            else
+                _G.SafeFireServer(primaryRemote, "Swing", "Thrust")
+                task.wait(KILLAURA_SWING_TO_HIT_DELAY) -- Delay between swing and hit
+                if model and model.Parent then -- Re-validate
+                    _G.SafeFireServer(primaryRemote, "HitZombie", model, attackPos, true, Vector3.new(0, 15, 0), "Head", Vector3.new(0, 1, 0))
+                end
             end
-        end
+        end)
     end)
 end
 
@@ -8906,13 +8948,17 @@ local KillAura_zombiesFolder = nil
 local KillAura_lastZombieFolderCheck = 0
 
 local function KillAura_getZombiesFolder()
-    local now = tick()
+    local now = os.clock()
     if now - KillAura_lastZombieFolderCheck > 2 then
         KillAura_zombiesFolder = Workspace:FindFirstChild("Zombies")
         KillAura_lastZombieFolderCheck = now
     end
     return KillAura_zombiesFolder
 end
+
+-- Pre-allocated targets table reused every tick to avoid GC pressure
+local _killAuraTargetsBuf = {}
+local _autoHeadTargetsBuf = {}
 
 local function KillAura_performKillAura(hrp)
     if not KillAuraEnabled then return end
@@ -8932,9 +8978,11 @@ local function KillAura_performKillAura(hrp)
     local zombiesFolder = KillAura_getZombiesFolder()
     if not zombiesFolder then return end
     
-    -- Optimized target collection with pre-allocated table
-    local targets = {}
+    -- Reuse pre-allocated buffer (clear without creating new table)
+    local targets = _killAuraTargetsBuf
     local targetCount = 0
+    for i = #targets, 1, -1 do targets[i] = nil end
+
     local maxTargets = KillAuraMultiTargets or 5
     
     -- Use GetChildren on Zombies folder (faster than GetDescendants for direct children)
@@ -8982,7 +9030,7 @@ local function KillAura_performKillAura(hrp)
 
     local attackCount = math.min(maxTargets, targetCount)
     
-    -- Batch attack all targets (no delay between)
+    -- Batch attack all targets (no delay between - each attack is task.spawned internally)
     for i = 1, attackCount do
         local entry = targets[i]
         if entry then
@@ -8999,6 +9047,9 @@ KillAura_autoLookHasTarget = false -- Global: Track if we have a target (for fly
 local AUTO_LOOK_MAX_PITCH_DOWN = 60 -- Maximum degrees to look down (like fly limit)
 local AUTO_LOOK_MAX_PITCH_UP = 45 -- Maximum degrees to look up
 local autoLook_lastFlyState = false -- Track fly state to detect transitions
+local autoLook_cachedHead = nil -- Cached nearest zombie head
+local autoLook_cacheTime = 0
+local AUTO_LOOK_CACHE_INTERVAL = 0.1 -- Re-scan zombies every 100ms (10fps) instead of every frame
 
 local function KillAura_cleanupAutoLook()
     -- Mark no target
@@ -9075,26 +9126,34 @@ local function KillAura_performAutoLook(hrp)
     local nearestDistSq = math.huge
     local maxRange = 50 -- Auto look range (independent of kill aura range)
     local maxRangeSq = maxRange * maxRange
-    
-    for _, model in ipairs(zombiesFolder:GetChildren()) do
-        if model:IsA("Model") then
-            -- Filter by Kill Aura zombie types (only target selected types)
-            local zombieType = KillAura_getZombieType(model)
-            if zombieType and not KillAura_SelectedZombieTypes[zombieType] then
-                -- Skip this zombie - not in selected types
-            else
-                local head = model:FindFirstChild("Head")
-                if head then
-                    local headPos = head.Position
-                    local dx, dy, dz = headPos.X - hrpPos.X, headPos.Y - hrpPos.Y, headPos.Z - hrpPos.Z
-                    local d2 = dx*dx + dy*dy + dz*dz
-                    if d2 < nearestDistSq and d2 <= maxRangeSq then
-                        nearestDistSq = d2
-                        nearestHead = head
+
+    local now = os.clock()
+    if now - autoLook_cacheTime >= AUTO_LOOK_CACHE_INTERVAL or not autoLook_cachedHead or not autoLook_cachedHead.Parent then
+        autoLook_cacheTime = now
+        -- Scan zombies only every 100ms
+        for _, model in ipairs(zombiesFolder:GetChildren()) do
+            if model:IsA("Model") then
+                -- Filter by Kill Aura zombie types (only target selected types)
+                local zombieType = KillAura_getZombieType(model)
+                if zombieType and not KillAura_SelectedZombieTypes[zombieType] then
+                    -- Skip this zombie - not in selected types
+                else
+                    local head = model:FindFirstChild("Head")
+                    if head then
+                        local headPos = head.Position
+                        local dx, dy, dz = headPos.X - hrpPos.X, headPos.Y - hrpPos.Y, headPos.Z - hrpPos.Z
+                        local d2 = dx*dx + dy*dy + dz*dz
+                        if d2 < nearestDistSq and d2 <= maxRangeSq then
+                            nearestDistSq = d2
+                            nearestHead = head
+                        end
                     end
                 end
             end
         end
+        autoLook_cachedHead = nearestHead
+    else
+        nearestHead = autoLook_cachedHead
     end
     
     if nearestHead and nearestHead.Parent then
@@ -9189,35 +9248,63 @@ local function KillAura_performAutoHead(hrp)
     local hrpPos = hrp.Position
     local isBayonet = KillAura_isBayonetTool(meleeTool)
     
-    -- Direct scan - no cache
-    local targets = {}
+    -- Reuse pre-allocated buffer to avoid GC pressure
+    local targets = _autoHeadTargetsBuf
+    for i = #targets, 1, -1 do targets[i] = nil end
+    -- Parallel arrays to avoid creating a sub-table per zombie
+    local targetModels = targets
+    local targetHeads = _autoHeadTargetsBuf._heads or {}
+    local targetDists = _autoHeadTargetsBuf._dists or {}
+    _autoHeadTargetsBuf._heads = targetHeads
+    _autoHeadTargetsBuf._dists = targetDists
+    local targetCount = 0
     local zombiesFolder = Workspace:FindFirstChild("Zombies")
     if not zombiesFolder then return end
     
-    for _, model in ipairs(zombiesFolder:GetDescendants()) do
+    for _, model in ipairs(zombiesFolder:GetChildren()) do
         if model:IsA("Model") and not KillAura_shouldSkipZombie(model) then
             local head = KillAura_findHead(model)
             if head then
                 local d2 = KillAura_distSq(head.Position, hrpPos)
                 if d2 <= maxRangeSq then
-                    targets[#targets + 1] = { model = model, head = head, d2 = d2 }
+                    targetCount = targetCount + 1
+                    targetModels[targetCount] = model
+                    targetHeads[targetCount] = head
+                    targetDists[targetCount] = d2
                 end
             end
         end
     end
+    -- Clear leftover slots
+    for i = targetCount + 1, #targetModels do targetModels[i] = nil end
     
-    if #targets == 0 then return end
-    table.sort(targets, function(a, b) return a.d2 < b.d2 end)
+    if targetCount == 0 then return end
+
+    -- Sort by distance using parallel arrays (insertion sort is fast for small N)
+    for i = 2, targetCount do
+        local md, hd, dd = targetModels[i], targetHeads[i], targetDists[i]
+        local j = i - 1
+        while j >= 1 and targetDists[j] > dd do
+            targetModels[j+1] = targetModels[j]
+            targetHeads[j+1] = targetHeads[j]
+            targetDists[j+1] = targetDists[j]
+            j = j - 1
+        end
+        targetModels[j+1] = md
+        targetHeads[j+1] = hd
+        targetDists[j+1] = dd
+    end
     
-    local maxTargets = KillAuraEnabled and math.min(KillAuraMultiTargets or 1, #targets) or 1
+    local maxTargets = KillAuraEnabled and math.min(KillAuraMultiTargets or 1, targetCount) or 1
     for i = 1, maxTargets do
-        local entry = targets[i]
-        if not entry then break end
+        local model = targetModels[i]
+        local head = targetHeads[i]
+        if not model then break end
         
         -- Anti-detection: Rate limit and distance check
         if not KillAura_canAttack() then break end
         
-        local attackPos = KillAura_getAttackPosition(entry.model, entry.head)
+        local attackPos = KillAura_getAttackPosition(model, head)
         
         -- Anti-detection: Distance validation
         if not KillAura_isValidAttackDistance(hrpPos, attackPos) then
@@ -9234,14 +9321,14 @@ local function KillAura_performAutoHead(hrp)
         
         if isBayonet then
             pcall(function()
-                if not entry.model or not entry.model.Parent or not attackPos then return end
+                if not model or not model.Parent or not attackPos then return end
                 _G.SafeFireServer(primaryRemote, "ThrustBayonet")
-                _G.SafeFireServer(primaryRemote, "Bayonet_HitZombie", entry.model, attackPos, true)
+                _G.SafeFireServer(primaryRemote, "Bayonet_HitZombie", model, attackPos, true)
             end)
         else
             pcall(function()
-                if not entry.model or not entry.model.Parent or not attackPos then return end
-                _G.SafeFireServer(primaryRemote, "HitZombie", entry.model, attackPos, true)
+                if not model or not model.Parent or not attackPos then return end
+                _G.SafeFireServer(primaryRemote, "HitZombie", model, attackPos, true)
             end)
         end
     end
@@ -9249,10 +9336,11 @@ end
 
 -- Heartbeat loop - continuous (deferred to prevent load freeze)
 local KillAura_nextTick = 0
+local killAuraHeartbeatConn = nil -- stored so it can be disconnected if needed
 
 task.defer(function()
     task.wait(0.5) -- Stagger start
-    RunService.Heartbeat:Connect(function()
+    killAuraHeartbeatConn = RunService.Heartbeat:Connect(function()
         local char = LocalPlayer.Character
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
@@ -9269,7 +9357,7 @@ task.defer(function()
         -- Pause attacks while grabbed/pinned (but Auto Look already ran above)
         if KillAura_isPinnedOrGrabbed() then return end
 
-        local now = tick()
+        local now = os.clock()
         
         -- COORDINATION: Check if Shove Aura just fired (avoid overlapping)
         local coord = _G.AuraCoordination
@@ -9337,73 +9425,6 @@ local function SetHitboxExpanderState(enabled)
         Icon = enabled and "scan" or "x"
     })
 end
-
--- ===== KillAura API for external suppression (AntiGrab) =====
-local KillAura_SuppressedByAntiGrab = false
-local KillAura_StoredEnabled = nil
-local KillAura_StoredHitbox = nil
-
-local function KillAura_suppressByAntiGrab()
-    if KillAura_SuppressedByAntiGrab then return end
-    KillAura_SuppressedByAntiGrab = true
-
-    -- store current values to restore later
-    KillAura_StoredEnabled = KillAuraEnabled
-    KillAura_StoredHitbox = KillAura_HitboxExpanderEnabled
-
-    local notifyOnChange = (KillAuraEnabled == true) or (KillAura_HitboxExpanderEnabled == true)
-
-    -- force off
-    KillAuraEnabled = false
-    -- also force off hitbox/reach safely via helper (keeps UI state consistent if possible)
-    pcall(SetHitboxExpanderState, false)
-
-    if notifyOnChange then
-        pcall(function()
-            if WindUI and WindUI.Notify then
-                WindUI:Notify({ Title = "Kill Aura", Content = "Disabled by Anti-Grab", Duration = 1.5 })
-            end
-        end)
-    end
-end
-
-local function KillAura_unsuppressByAntiGrab()
-    if not KillAura_SuppressedByAntiGrab then return end
-    KillAura_SuppressedByAntiGrab = false
-
-    local hadStored = (KillAura_StoredEnabled ~= nil) or (KillAura_StoredHitbox ~= nil)
-
-    -- restore previously stored state (only if we stored something)
-    if KillAura_StoredEnabled ~= nil then
-        KillAuraEnabled = KillAura_StoredEnabled
-        KillAura_StoredEnabled = nil
-    end
-    if KillAura_StoredHitbox ~= nil then
-        pcall(SetHitboxExpanderState, KillAura_StoredHitbox)
-        KillAura_StoredHitbox = nil
-    end
-
-    if hadStored then
-        pcall(function()
-            if WindUI and WindUI.Notify then
-                WindUI:Notify({ Title = "Kill Aura", Content = "Restored", Duration = 1.5 })
-            end
-        end)
-    end
-end
-
--- expose API for other scripts (AntiGrab) in a robust way
-if type(getgenv) == "function" then
-    local g = getgenv()
-    g.KillAuraAPI = g.KillAuraAPI or {}
-    g.KillAuraAPI.suppress = KillAura_suppressByAntiGrab
-    g.KillAuraAPI.unsuppress = KillAura_unsuppressByAntiGrab
-else
-    _G.KillAuraAPI = _G.KillAuraAPI or {}
-    _G.KillAuraAPI.suppress = KillAura_suppressByAntiGrab
-    _G.KillAuraAPI.unsuppress = KillAura_unsuppressByAntiGrab
-end
--- ============================================================
 
 HitboxExpanderToggleElement = HitboxExpanderSection:Toggle({
     Title = "Reach",
@@ -9816,8 +9837,8 @@ do -- // Medic Section in Classes Tab
         if humanoid.Health > humanoid.MaxHealth * (HealThreshold / 100) then return end
 
         local lastReq = HealData[player] or 0
-        if tick() - lastReq < HealCooldown then return end
-        HealData[player] = tick()
+        if os.clock() - lastReq < HealCooldown then return end
+        HealData[player] = os.clock()
 
         local localChar = LocalPlayer.Character
         if not localChar then return end
@@ -9837,8 +9858,8 @@ do -- // Medic Section in Classes Tab
         pcall(function()
             _G.SafeFireServer(remote, "SendRequest", humanoid)
             local lastNotify = HealNotify[player] or 0
-            if tick() - lastNotify >= HealCooldown then
-                HealNotify[player] = tick()
+            if os.clock() - lastNotify >= HealCooldown then
+                HealNotify[player] = os.clock()
                 WindUI:Notify({
                     Title = "Auto Heal",
                     Content = "Requested heal for " .. player.Name,
@@ -9958,7 +9979,7 @@ do -- // Medic Section in Classes Tab
     local PROMPT_CACHE_DURATION = 2 -- Refresh cache every 2 seconds
     
     local function RefreshPromptCache()
-        local now = tick()
+        local now = os.clock()
         if now - lastPromptCacheTime < PROMPT_CACHE_DURATION then return end
         lastPromptCacheTime = now
         
@@ -10108,7 +10129,7 @@ do -- // Sapper Section in Classes Tab
     
     -- Helper: Find hammer remote (cached)
     local function getHammerRemote()
-        local now = tick()
+        local now = os.clock()
         if cachedHammerRemote and (now - cachedHammerRemoteTime) < HAMMER_CACHE_TTL then
             -- Validate cached remote still exists
             if cachedHammerRemote.Parent then return cachedHammerRemote end
@@ -10166,7 +10187,7 @@ do -- // Sapper Section in Classes Tab
     
     -- OPTIMIZED: Get buildable folder references (cached)
     local function getBuildableFolders()
-        local now = tick()
+        local now = os.clock()
         if cachedBuildableFolders and (now - cachedBuildableFoldersTime) < FOLDER_CACHE_TTL then
             return cachedBuildableFolders
         end
@@ -10367,8 +10388,6 @@ local Workspace = workspace
 
 -- config
 local ToolNamesPriority = {"Carbine", "Navy Pistol", "Axe", "Pickaxe", "Baguette"}
-local AntiGrabPollRate = 0.05
-local AntiGrabRange = 12
 
 local ShoveAuraRange = 12
 local ShoveTargets = 3
@@ -10390,9 +10409,7 @@ ShoveHitboxExpanderDelay = ShoveHitboxExpanderDelay or 0.03
 ShoveHitboxAnimConnection = ShoveHitboxAnimConnection or nil
 AutoParrySapperMeleeEnabled = AutoParrySapperMeleeEnabled or false
 
-AntiGrabEnabled = false -- Global for keybind access
 ShoveAuraEnabled = false -- Global for keybind access
-local shoving = false
 
 local function safeWait(t)
     t = tonumber(t) or 0
@@ -10473,8 +10490,8 @@ end
 
 local function TryEquipFromBackpack(timeout)
     timeout = tonumber(timeout) or 0.8
-    local start = tick()
-    while tick() - start < timeout do
+    local start = os.clock()
+    while os.clock() - start < timeout do
         for _, name in ipairs(ToolNamesPriority) do
             local candidate = FindToolInstanceByName(name)
             if candidate and candidate:IsA("Tool") then
@@ -10585,187 +10602,6 @@ local function PerformGunStunCombo(remote, originPos)
     end
 end
 
--- make pinned/grabbed detection tolerant of numbers, numeric-strings, and booleans
-local function IsPinnedOrGrabbed(grabbedVal, pinVal)
-    if not grabbedVal and not pinVal then return false end
-
-    if grabbedVal and grabbedVal.Value ~= nil then
-        local v = grabbedVal.Value
-        if type(v) == "boolean" and v == true then return true end
-        local n = tonumber(v)
-        if n and n > 0 then return true end
-        -- also accept string "true"
-        if tostring(v):lower() == "true" then return true end
-    end
-
-    if pinVal and pinVal.Value ~= nil then
-        local v = pinVal.Value
-        if type(v) == "boolean" and v == true then return true end
-        local n = tonumber(v)
-        if n and n > 0 then return true end
-        if tostring(v) == "RunnerAttack" then return true end
-        if tostring(v):lower() == "true" then return true end
-    end
-
-    return false
-end
-
--- Live-check helper (reads current Workspace user state each time)
-local function CurrentPinnedOrGrabbed()
-    local wsPlayers = Workspace:FindFirstChild("Players")
-    if not wsPlayers then return false end
-    local folder = wsPlayers:FindFirstChild(LocalPlayer and LocalPlayer.Name or "")
-    if not folder then return false end
-    local userStates = folder:FindFirstChild("UserStates")
-    if not userStates then return false end
-    local grabbedVal = userStates:FindFirstChild("Grabbed")
-    local pinVal = userStates:FindFirstChild("Pin")
-    return IsPinnedOrGrabbed(grabbedVal, pinVal)
-end
-
-local function IsToolEquipped(toolName)
-    if not toolName then return false end
-    if not LocalPlayer or not LocalPlayer.Character then return false end
-    return LocalPlayer.Character:FindFirstChild(toolName) ~= nil
-end
-
-local function FireShoveRemote(remote, agentPart, toolName)
-    if not remote then return end
-    local tname = tostring(toolName or ""):lower()
-    local char = LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    -- Baguette uses same shove mechanics as melee weapons
-    if tname == "carbine" or tname == "navy pistol" then
-        pcall(function() _G.SafeFireServer(remote, "Shove") end)
-        if hrp then PerformGunStunCombo(remote, hrp.Position) end
-    else
-        if not agentPart then return end
-        pcall(function() _G.SafeFireServer(remote, "FeedbackStun", agentPart.Parent, agentPart.Position) end)
-        pcall(function() _G.SafeFireServer(remote, "StopBraceBlock") end)
-    end
-end
-
--- ALWAYS try to keep equipping while pinned; if tool disappears keep retrying until freed
-local function StartShovingLoop(initialEquipName)
-    if shoving then return end
-    shoving = true
-
-    task.spawn(function()
-        local equippedName = initialEquipName
-        local remote = equippedName and GetToolRemoteByName(equippedName) or nil
-
-        while true do
-            -- If AntiGrab disabled externally, break out
-            if not AntiGrabEnabled then break end
-
-            -- If not currently pinned/grabbed, attempt a small confirmation window
-            if not CurrentPinnedOrGrabbed() then
-                local releaseConfirmed = true
-                -- require a few consecutive checks to avoid flicker issues
-                for i = 1, 4 do
-                    safeWait(AntiGrabPollRate) -- small pause per check
-                    if CurrentPinnedOrGrabbed() then
-                        releaseConfirmed = false
-                        break
-                    end
-                end
-                if releaseConfirmed then break end
-            end
-
-            -- ensure we have a valid equipped tool; if not, keep trying while still pinned (no time cap)
-            if not (equippedName and IsToolEquipped(equippedName)) then
-                local newName = TryEquipFromBackpack(0.6)
-                if newName then
-                    equippedName = newName
-                end
-                -- refresh remote after each attempt
-                remote = equippedName and GetToolRemoteByName(equippedName) or nil
-            end
-
-            -- if remote missing try to refresh but don't block long (keep trying across loop iterations)
-            if not remote and equippedName then
-                remote = GetToolRemoteByName(equippedName)
-            end
-
-            -- perform shove attempts if we have hrp and targets
-            local char = LocalPlayer.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local targets = FindNearestAgentParts(hrp.Position, AntiGrabRange, 2)
-                for _, agentPart in ipairs(targets) do
-                    -- lightweight refresh of remote per-target
-                    if not remote and equippedName then
-                        remote = GetToolRemoteByName(equippedName)
-                    end
-                    if remote then
-                        FireShoveRemote(remote, agentPart, equippedName)
-                    end
-                end
-            end
-
-            task.wait(0.06)
-        end
-
-        shoving = false
-    end)
-end
-
--- monitor loop (debounced) — now notifies Kill Aura to disable/restore
-task.defer(function()
-    task.wait(3) -- Stagger start
-    local lastState = false
-    while true do
-        task.wait(AntiGrabPollRate)
-        if not AntiGrabEnabled then
-            -- if anti-grab got disabled while previously suppressing, try to unsuppress KillAura
-            if lastState then
-                pcall(function()
-                    local ka = (type(getgenv) == "function" and getgenv().KillAuraAPI) or _G.KillAuraAPI
-                    if ka and ka.unsuppress then ka.unsuppress() end
-                end)
-            end
-            lastState = false
-        else
-
-            local currentlyPinnedOrGrabbed = CurrentPinnedOrGrabbed()
-
-        -- transition: not grabbed -> grabbed
-        if currentlyPinnedOrGrabbed and not lastState then
-            -- try to equip aggressively once the state transitions
-            local equippedName = TryEquipFromBackpack(1.0)
-            StartShovingLoop(equippedName)
-
-            -- request Kill Aura be disabled while we're grabbed
-            pcall(function()
-                local ka = (type(getgenv) == "function" and getgenv().KillAuraAPI) or _G.KillAuraAPI
-                if ka and ka.suppress then ka.suppress() end
-            end)
-        end
-
-        -- ensure loop has started if pinned
-        if currentlyPinnedOrGrabbed and not shoving then
-            local equippedName = TryEquipFromBackpack(1.0)
-            StartShovingLoop(equippedName)
-
-            pcall(function()
-                local ka = (type(getgenv) == "function" and getgenv().KillAuraAPI) or _G.KillAuraAPI
-                if ka and ka.suppress then ka.suppress() end
-            end)
-        end
-
-            -- transition: grabbed -> released (use lastState to detect transition)
-            if (not currentlyPinnedOrGrabbed) and lastState then
-                -- Ask Kill Aura to restore previous state (after release)
-                pcall(function()
-                    local ka = (type(getgenv) == "function" and getgenv().KillAuraAPI) or _G.KillAuraAPI
-                    if ka and ka.unsuppress then ka.unsuppress() end
-                end)
-            end
-
-            lastState = currentlyPinnedOrGrabbed
-        end
-    end
-end)
 
 -- Shove Aura: unchanged aside from using the same robust remote lookup and gun/melee behavior
 local function RemoteFromToolInstance(tool)
@@ -10851,7 +10687,7 @@ local SHOVE_AURA_REMOTE_CACHE_TIME = 2 -- Recheck remote every 2 seconds
 -- Get remote with caching - NO EQUIPPING (use whatever is currently available)
 -- When both auras are enabled, we don't fight over tools - we use what's equipped
 local function ShoveAura_getRemote()
-    local now = tick()
+    local now = os.clock()
     
     -- Check if cache is still valid
     if ShoveAura_cachedRemote and (now - ShoveAura_lastRemoteCheck) < SHOVE_AURA_REMOTE_CACHE_TIME then
@@ -10910,7 +10746,7 @@ task.defer(function()
             if hrp then
                 -- COORDINATION: Check if Kill Aura just fired (avoid overlapping)
                 local coord = _G.AuraCoordination
-                local now = tick()
+                local now = os.clock()
                 local timeSinceKillAura = now - (coord.killAuraLastFire or 0)
                 
                 -- If Kill Aura fired very recently, add tiny offset to stagger attacks
@@ -10925,7 +10761,7 @@ task.defer(function()
                     local targets = FindNearestAgentParts(hrp.Position, ShoveAuraRange, ShoveTargets)
                     if #targets > 0 then
                         -- Mark when Shove Aura fires
-                        coord.shoveAuraLastFire = tick()
+                        coord.shoveAuraLastFire = os.clock()
                         
                         -- Fire shoves directly (no spawn needed - already non-blocking)
                         for _, part in ipairs(targets) do
@@ -11201,28 +11037,7 @@ task.defer(function()
     end
 end)
 
-local AntiGrabToggle = SapperSection:Toggle({
-    Title = "Anti Grab",
-    Flag = "Classes_AntiGrab",
-    Desc = "Will AutoMattically Shove The Zombie Grabbing You.",
-    Default = false,
-    Callback = function(v)
-        AntiGrabEnabled = v
-        if not v then shoving = false end
-        pcall(function()
-            if WindUI then
-                WindUI:Notify({
-                    Title = "Sapper Anti Grab",
-                    Content = v and "Anti Grab Enabled" or "Anti Grab Disabled",
-                    Duration = 2,
-                    Icon = v and "shield-check" or "shield-off",
-                })
-            end
-        end)
-    end
-})
 _G.KatchiToggleElements = _G.KatchiToggleElements or {}
-_G.KatchiToggleElements.AntiGrab = AntiGrabToggle
 
 local ShoveAuraToggle = SapperSection:Toggle({
     Title = "Shove Aura",
@@ -11491,13 +11306,13 @@ task.defer(function()
                         if numeric and numeric >= thresholdNum and numeric < 100 then
                             local uid = player.UserId or player.Name
                             local last = BlessData[uid] or 0
-                            if tick() - last >= (tonumber(BlessCooldown) or 0) then
+                            if os.clock() - last >= (tonumber(BlessCooldown) or 0) then
                                 local success = false
                                 pcall(function()
                                     success = FireBlessByPlayer_Silent(player)
                                 end)
                                 if success then
-                                    BlessData[uid] = tick()
+                                    BlessData[uid] = os.clock()
                                     WindUI:Notify({
                                         Title = "Auto Bless",
                                         Content = "Sent bless to " .. player.Name,
@@ -11541,13 +11356,13 @@ task.defer(function()
                         if numeric and numeric >= 100 then
                             local uid = player.UserId or player.Name
                             local last = MercyData[uid] or 0
-                            if tick() - last >= (tonumber(MercyCooldown) or 0) then
+                            if os.clock() - last >= (tonumber(MercyCooldown) or 0) then
                                 local success = false
                                 pcall(function()
                                     success = FireMercyByPlayer_Silent(player)
                                 end)
                                 if success then
-                                    MercyData[uid] = tick()
+                                    MercyData[uid] = os.clock()
                                     WindUI:Notify({
                                         Title = "Auto Mercy",
                                         Content = "Sent mercy to " .. player.Name,
@@ -11700,7 +11515,7 @@ do -- // Dracula (New) — auto melee remote scanner + robust ESP (Dracula + Sil
                 end
             end
         end
-        lastDraculaRemoteScan = tick()
+        lastDraculaRemoteScan = os.clock()
         if DEBUG then
             local c = 0
             for _ in pairs(draculaRemotes) do c = c + 1 end
@@ -11993,7 +11808,7 @@ do -- // Dracula (New) — auto melee remote scanner + robust ESP (Dracula + Sil
             end
 
             -- ensure remotes are fresh
-            if tick() - lastDraculaRemoteScan > 1 then ScanDraculaRemotes() end
+            if os.clock() - lastDraculaRemoteScan > 1 then ScanDraculaRemotes() end
 
             -- update ESP
             pcall(updateDraculaESP)
@@ -12448,8 +12263,8 @@ do -- // Players Tab
         
         -- PERFORMANCE: Cache workspace.Players reference once per update cycle
         local wPlayers = Workspace:FindFirstChild("Players")
-        -- PERFORMANCE: Compute tick() once for pulse animations
-        local now = tick()
+        -- PERFORMANCE: Compute os.clock() once for pulse animations
+        local now = os.clock()
 
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer then
@@ -12811,7 +12626,12 @@ do -- // Players Tab
                         end
 
                         if data.DistanceLabel and data.DistanceLabel.Visible then
-                            data.DistanceLabel.Text = math.floor(dist or 0) .. " studs"
+                            -- PERF: Only rebuild string when distance changes by ≥1 stud
+                            local flooredDist = math.floor(dist or 0)
+                            if flooredDist ~= (data._lastDist or -1) then
+                                data._lastDist = flooredDist
+                                data.DistanceLabel.Text = flooredDist .. " studs"
+                            end
                             data.DistanceLabel.TextTransparency = 1 - fadeFactor
                             data.DistanceLabel.TextStrokeTransparency = 0.5 + (1 - fadeFactor) * 0.5
                         end
@@ -12842,9 +12662,9 @@ do -- // Players Tab
                             })
                         end
                     elseif percent < 0.25 then
-                        if data.NotifState ~= "dying" and tick() - data.LastNotify > 3 then
+                        if data.NotifState ~= "dying" and os.clock() - data.LastNotify > 3 then
                             data.NotifState = "dying"
-                            data.LastNotify = tick()
+                            data.LastNotify = os.clock()
                             WindUI:Notify({
                                 Title = "Player Dying",
                                 Content = player.Name .. " is Dying!",
@@ -12853,9 +12673,9 @@ do -- // Players Tab
                             })
                         end
                     elseif percent < 0.45 then
-                        if data.NotifState ~= "low" and tick() - data.LastNotify > 3 then
+                        if data.NotifState ~= "low" and os.clock() - data.LastNotify > 3 then
                             data.NotifState = "low"
-                            data.LastNotify = tick()
+                            data.LastNotify = os.clock()
                             WindUI:Notify({
                                 Title = "Player Low Health",
                                 Content = player.Name .. " has Low Health!",
@@ -12873,13 +12693,14 @@ do -- // Players Tab
 
     -- PERFORMANCE: Throttle Player ESP updates
     local playerESPLastUpdate = 0
-    local PLAYER_ESP_UPDATE_INTERVAL = 0.15 -- Update every 0.15 seconds
+    local PLAYER_ESP_UPDATE_INTERVAL = 0.25 -- Update every 0.25 seconds (was 0.15)
+    local playerESPHeartbeatConn = nil -- stored so it can be disconnected if needed
     
     task.defer(function()
         task.wait(1) -- Stagger start
-        RunService.Heartbeat:Connect(function()
+        playerESPHeartbeatConn = RunService.Heartbeat:Connect(function()
             -- PERFORMANCE: Throttle updates
-            local now = tick()
+            local now = os.clock()
             if now - playerESPLastUpdate < PLAYER_ESP_UPDATE_INTERVAL then return end
             playerESPLastUpdate = now
             
@@ -13539,7 +13360,7 @@ do -- // Headless Horseman Tab
     local highlightInstances = setmetatable({}, { __mode = "k" }) -- model -> Highlight
     local aimbotConnection = nil
     local inputConn = nil
-    local lastBossFound = tick()
+    local lastBossFound = os.clock()
     local bossTimeout = 10 -- seconds
     local ListeningForBind = false
 
@@ -13651,7 +13472,7 @@ do -- // Headless Horseman Tab
             end
 
             -- PERFORMANCE FIX: Only search for boss model every 0.5 seconds instead of every frame
-            local now = tick()
+            local now = os.clock()
             if now - headlessLastCheck > HEADLESS_CHECK_INTERVAL or not headlessCachedModel or not headlessCachedModel.Parent then
                 headlessLastCheck = now
                 headlessCachedModel = findHeadlessBossModel()
@@ -13715,7 +13536,7 @@ do -- // Headless Horseman Tab
 
             local ok, targetPart = pcall(getHeadlessHitbox)
             if not ok or not targetPart or not targetPart:IsA("BasePart") then
-                if tick() - lastBossFound > bossTimeout then
+                if os.clock() - lastBossFound > bossTimeout then
                     setButtonActive(false)
                     if WindUI then
                         WindUI:Notify({
@@ -13730,7 +13551,7 @@ do -- // Headless Horseman Tab
             end
 
             if not targetPart.Parent then return end
-            lastBossFound = tick()
+            lastBossFound = os.clock()
 
             local predicted = targetPart.Position + (targetPart.Velocity * (manualPing / 1000))
 
@@ -13894,7 +13715,7 @@ do -- // Headless Horseman Tab
             local delta = inputPos - DragStartPos
 
             -- decide whether this is a drag
-            if not AimBtnDragging and PotentialDrag and delta.Magnitude > DRAG_THRESHOLD and (tick() - InputStartTick) > HOLD_TIME then
+            if not AimBtnDragging and PotentialDrag and delta.Magnitude > DRAG_THRESHOLD and (os.clock() - InputStartTick) > HOLD_TIME then
                 AimBtnDragging = true
             end
 
@@ -13954,7 +13775,7 @@ do -- // Headless Horseman Tab
                 DragInput = input
                 DragStartPos = Vector2.new(input.Position.X, input.Position.Y)
                 BtnTargetPos = container.Position
-                InputStartTick = tick()
+                InputStartTick = os.clock()
                 PotentialDrag = true
 
                 local shrink = TweenService:Create(AimButtonInner, TweenInfo.new(0.12, Enum.EasingStyle.Sine), {Size = UDim2.new(1, -14, 1, -14)})
@@ -14157,7 +13978,8 @@ do -- // Headless Horseman Tab
     end
 
     LocalPlayer.CharacterAdded:Connect(function(newChar)
-        local newHum = newChar:WaitForChild("Humanoid")
+        local newHum = newChar:WaitForChild("Humanoid", 10)
+        if not newHum then return end
         newHum.Died:Connect(handleDeath)
 
         task.wait(0.1)
@@ -16184,13 +16006,19 @@ do -- // Misc Tab (forceful WalkSpeed loop, looped Fullbright & NoFog, removed J
 
     function startWalkForceLoop() -- Global for keybind access
         if heartbeatConn then heartbeatConn:Disconnect() end
+        -- PERF: Throttle to every 0.5s instead of every frame.
+        -- GetPropertyChangedSignal already handles instant reactive resets.
+        local _walkForceLastCheck = 0
         heartbeatConn = RunService.Heartbeat:Connect(function()
             if not walkLoopEnabled then return end
+            local now = os.clock()
+            if now - _walkForceLastCheck < 0.5 then return end
+            _walkForceLastCheck = now
             local char = LocalPlayer and LocalPlayer.Character
             if char then
                 local hum = char:FindFirstChildOfClass("Humanoid")
                 if hum then
-                    -- enforce every tick
+                    -- enforce periodically as a safety net
                     safeSetWalk(hum, desiredWalkSpeed)
                     -- ensure we have a property watcher attached
                     if not humPropConns[hum] then
@@ -16781,20 +16609,16 @@ do
         end
     })
 
-    -- === BACKGROUND MUSIC SYSTEM (Game Audio Scanner) ===
-    local BackgroundMusicSection = MiscTab:Section({ Title = "Background Music", Icon = "music", Opened = false })
-    
-    -- Music system variables
+    -- === SHARED MUSIC SYSTEM VARIABLES (used by both Presets and Background Music sections) ===
     local currentMusicSound = nil
     local musicEnabled = false
     local musicVolume = 0.5
     local scannedAudioList = {}
     local musicDropdown = nil
     local musicSearchQuery = ""
-    local audioNameToData = {} -- Lookup table
+    local audioNameToData = {}
     local selectedAudioData = nil
-    
-    -- Function to create/get sound instance
+
     local function getMusicSound()
         if not currentMusicSound or not currentMusicSound.Parent then
             currentMusicSound = Instance.new("Sound")
@@ -16805,6 +16629,94 @@ do
         end
         return currentMusicSound
     end
+
+    -- === MUSIC PRESETS SECTION ===
+    local MUSIC_PRESETS = {
+        { name = "1812 Overture",                           id = "1838603000"      },
+        { name = "Facing the Inevitable",                   id = "1848015112"      },
+        { name = "Fraught Anxiety",                         id = "1835318303"      },
+        { name = "Finale London",                           id = "1835264051"      },
+        { name = "The Final Push",                          id = "1835172813"      },
+        { name = "Winter",                                  id = "1848052307"      },
+        { name = "Summer",                                  id = "1842159809"      },
+        { name = "Egmont Overture",                         id = "1843531626"      },
+        { name = "Bach's Fugue in G Minor",                 id = "107360532004113" },
+        { name = "Bach's Toccata and Fugue in D Minor",     id = "1836635015"      },
+        { name = "Pachelbel's Toccata and Fugue in D Minor",id = "1847145765"      },
+        { name = "My Love Is but a Lassie Yet",             id = "1840466666"      },
+        { name = "Ode To Joy",                              id = "1848044822"      },
+    }
+
+    local presetDropdownValues = {}
+    local presetNameToData = {}
+    for _, preset in ipairs(MUSIC_PRESETS) do
+        table.insert(presetDropdownValues, preset.name)
+        presetNameToData[preset.name] = preset
+    end
+
+    local selectedPreset = nil
+    local MusicPresetsSection = MiscTab:Section({ Title = "Music Presets", Icon = "disc", Opened = false })
+
+    MusicPresetsSection:Dropdown({
+        Title = "Select Preset",
+        Desc = "Choose a preset track to play",
+        Flag = "BGMusic_Preset",
+        Multi = false,
+        Values = presetDropdownValues,
+        Callback = function(selected)
+            if selected and presetNameToData[selected] then
+                selectedPreset = presetNameToData[selected]
+            end
+        end
+    })
+
+    MusicPresetsSection:Button({
+        Title = "▶️ Play Preset",
+        Desc = "Play the selected preset track",
+        Callback = function()
+            if selectedPreset then
+                pcall(function()
+                    local sound = getMusicSound()
+                    sound.SoundId = "rbxassetid://" .. selectedPreset.id
+                    sound.Volume = musicVolume
+                    sound:Play()
+                    selectedAudioData = {name = selectedPreset.name, id = tonumber(selectedPreset.id)}
+                    musicEnabled = true
+                    WindUI:Notify({Title = "Music Presets", Content = "Playing: " .. selectedPreset.name, Duration = 3, Icon = "music"})
+                end)
+            else
+                WindUI:Notify({Title = "Music Presets", Content = "Select a preset first!", Duration = 3, Icon = "alert-circle"})
+            end
+        end
+    })
+
+    MusicPresetsSection:Button({
+        Title = "⏹️ Stop All Music",
+        Desc = "Stop all sounds playing in the game",
+        Callback = function()
+            pcall(function()
+                if currentMusicSound and currentMusicSound.Parent then
+                    currentMusicSound:Stop()
+                end
+                musicEnabled = false
+                selectedAudioData = nil
+                selectedPreset = nil
+                local function stopAllSounds(parent)
+                    for _, child in ipairs(parent:GetDescendants()) do
+                        if child:IsA("Sound") then
+                            pcall(function() child:Stop() end)
+                        end
+                    end
+                end
+                stopAllSounds(game:GetService("Workspace"))
+                stopAllSounds(game:GetService("SoundService"))
+            end)
+            WindUI:Notify({Title = "Music Presets", Content = "All music stopped!", Duration = 3, Icon = "volume-x"})
+        end
+    })
+
+    -- === BACKGROUND MUSIC SYSTEM (Game Audio Scanner) ===
+    local BackgroundMusicSection = MiscTab:Section({ Title = "Background Music", Icon = "music", Opened = false })
     
     -- Function to extract audio ID
     local function extractAudioId(soundIdString)
@@ -16997,7 +16909,45 @@ do
         Title = "Selected Audio",
         Desc = "No audio selected"
     })
-    
+
+    -- Custom ID input
+    local customAudioId = ""
+
+    BackgroundMusicSection:Paragraph({
+        Title = "Custom Audio ID",
+        Desc = "Enter any Roblox audio asset ID to play it directly"
+    })
+
+    BackgroundMusicSection:Input({
+        Title = "Audio ID",
+        Desc = "Paste a Roblox audio asset ID (numbers only)",
+        Placeholder = "e.g. 1836635087",
+        Callback = function(text)
+            customAudioId = text:match("^%s*(.-)%s*$") -- trim whitespace
+        end
+    })
+
+    BackgroundMusicSection:Button({
+        Title = "▶️ Play Custom ID",
+        Desc = "Play the audio ID entered above",
+        Callback = function()
+            local id = customAudioId:match("rbxassetid://(%d+)") or customAudioId:match("^(%d+)$")
+            if id and id ~= "" then
+                pcall(function()
+                    local sound = getMusicSound()
+                    sound.SoundId = "rbxassetid://" .. id
+                    sound.Volume = musicVolume
+                    sound:Play()
+                    selectedAudioData = {name = "Custom ID: " .. id, id = tonumber(id)}
+                    musicEnabled = true
+                    WindUI:Notify({Title = "Background Music", Content = "Playing Custom ID: " .. id, Duration = 3, Icon = "music"})
+                end)
+            else
+                WindUI:Notify({Title = "Background Music", Content = "Enter a valid audio ID first!", Duration = 3, Icon = "alert-circle"})
+            end
+        end
+    })
+
     -- Enable toggle
     BackgroundMusicSection:Toggle({
         Title = "Enable Background Music",
@@ -17055,7 +17005,28 @@ do
             end
         end
     })
-    
+
+    BackgroundMusicSection:Button({
+        Title = "📋 Copy Audio ID",
+        Desc = "Copy the current audio ID to clipboard",
+        Callback = function()
+            if selectedAudioData and selectedAudioData.id then
+                setclipboard(tostring(selectedAudioData.id))
+                WindUI:Notify({Title = "Background Music", Content = "Copied ID: " .. tostring(selectedAudioData.id), Duration = 3, Icon = "clipboard"})
+            elseif currentMusicSound and currentMusicSound.Parent and currentMusicSound.SoundId ~= "" then
+                local id = extractAudioId(currentMusicSound.SoundId)
+                if id then
+                    setclipboard(tostring(id))
+                    WindUI:Notify({Title = "Background Music", Content = "Copied ID: " .. tostring(id), Duration = 3, Icon = "clipboard"})
+                else
+                    WindUI:Notify({Title = "Background Music", Content = "No audio ID found!", Duration = 3, Icon = "alert-circle"})
+                end
+            else
+                WindUI:Notify({Title = "Background Music", Content = "No audio selected!", Duration = 3, Icon = "alert-circle"})
+            end
+        end
+    })
+
     -- Cleanup
     game:GetService("Players").LocalPlayer.AncestryChanged:Connect(function()
         cleanupMusic()
@@ -17276,7 +17247,7 @@ local MAP_CHECK_INTERVAL = 15 -- Check every 15 seconds for map changes
 local function startNoFogMonitor()
     if noFogMonitorConn then return end
     
-    lastMapCheck = tick()
+    lastMapCheck = os.clock()
     
     -- Spawn monitoring loop
     task.spawn(function()
@@ -17285,7 +17256,7 @@ local function startNoFogMonitor()
             
             if not noFogEnabled then break end
             
-            local currentTime = tick()
+            local currentTime = os.clock()
             
             -- Check if fog has been reset by the game
             local fogWasReset = false
@@ -17449,8 +17420,12 @@ local function startFOVLock()
     end)
     
     -- Also force every frame as backup
+    local _fovLockFrame = 0
     fovLockConnection = RunService.RenderStepped:Connect(function()
         if not fovChangerEnabled then return end
+        _fovLockFrame = _fovLockFrame + 1
+        if _fovLockFrame < 10 then return end -- check every ~0.17s; property hook handles instant fixes
+        _fovLockFrame = 0
         forceFOV()
     end)
 end
@@ -17576,8 +17551,12 @@ VisualSection:Toggle({
             applyInfiniteZoom()
             -- Keep applying in case game resets it
             if zoomConnection then zoomConnection:Disconnect() end
+            local _zoomFrameCounter = 0
             zoomConnection = RunService.Heartbeat:Connect(function()
                 if not infiniteZoomEnabled then return end
+                _zoomFrameCounter = _zoomFrameCounter + 1
+                if _zoomFrameCounter < 30 then return end -- check every ~0.5s not every frame
+                _zoomFrameCounter = 0
                 pcall(function()
                     local player = Players.LocalPlayer
                     if player and player.CameraMaxZoomDistance < 9999 then
@@ -17651,22 +17630,40 @@ VisualSection:Toggle({
         if state then
             applyFPSBoost()
             -- Reapply every time a new map/descendants are added
+            -- Batch queue: collect objects added in a burst and process them together
+            -- This prevents hundreds of sequential pcalls during map loads
+            local _fpsBatch = {}
+            local _fpsBatchPending = false
+            local function _processFPSBatch()
+                _fpsBatchPending = false
+                for i = 1, #_fpsBatch do
+                    local obj = _fpsBatch[i]
+                    _fpsBatch[i] = nil
+                    if not fpsBoosterEnabled then break end
+                    pcall(function()
+                        if obj:IsA("Texture") or obj:IsA("Decal") then
+                            obj.Transparency = 1
+                        elseif obj:IsA("SpecialMesh") then
+                            obj.TextureId = ""
+                        elseif obj:IsA("BasePart") then
+                            obj.Material = Enum.Material.SmoothPlastic
+                            obj.Reflectance = 0
+                        elseif obj:IsA("Sky") then
+                            obj:Destroy()
+                        elseif obj:IsA("ParticleEmitter") or obj:IsA("Beam") or obj:IsA("Trail")
+                            or obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
+                            obj.Enabled = false
+                        end
+                    end)
+                end
+            end
             fpsBoosterConnection = Workspace.DescendantAdded:Connect(function(obj)
                 if not fpsBoosterEnabled then return end
-                pcall(function()
-                    if obj:IsA("Texture") or obj:IsA("Decal") then
-                        obj.Transparency = 1
-                    elseif obj:IsA("SpecialMesh") then
-                        obj.TextureId = ""
-                    elseif obj:IsA("BasePart") then
-                        obj.Material = Enum.Material.SmoothPlastic
-                        obj.Reflectance = 0
-                    elseif obj:IsA("Sky") then
-                        obj:Destroy()
-                    elseif obj:IsA("ParticleEmitter") or obj:IsA("Beam") or obj:IsA("Trail") or obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
-                        obj.Enabled = false
-                    end
-                end)
+                _fpsBatch[#_fpsBatch + 1] = obj
+                if not _fpsBatchPending then
+                    _fpsBatchPending = true
+                    task.defer(_processFPSBatch) -- process whole batch next frame
+                end
             end)
             WindUI:Notify({
                 Title = "FPS Booster",
@@ -17810,12 +17807,13 @@ local function setupStreamerModeConnections()
         end))
     end
     
-    -- Periodic refresh to catch any reset names (proper throttle, not fragile tick()%2)
+    -- Periodic refresh to catch any reset names - PERF: increased to 10s (was 2s)
+    -- CharacterAdded hooks above handle respawns already; this is just a safety net
     local _streamerLastRefresh = 0
     table.insert(streamerModeConnections, RunService.Heartbeat:Connect(function()
         if not streamerModeEnabled then return end
-        local now = tick()
-        if now - _streamerLastRefresh < 2 then return end
+        local now = os.clock()
+        if now - _streamerLastRefresh < 10 then return end
         _streamerLastRefresh = now
         applyStreamerModeToAllPlayers()
     end))
@@ -17928,6 +17926,11 @@ end
     local function startAntiBreakLegs()
         disconnectAntiBreakLegs()
 
+        -- Cache UserStates reference (avoid FindFirstChild every frame)
+        local _cachedUserStates = LocalPlayer:FindFirstChild("UserStates")
+        local _cachedBrokenLegsRS = _cachedUserStates and _cachedUserStates:FindFirstChild("BrokenLegs")
+        local _userStatesRefreshTimer = 0
+
         -- Main loop - clear broken legs and apply climbing state when falling
         antiBreakLegsConn = RunService.RenderStepped:Connect(function()
             if not antiBreakLegsEnabled then return end
@@ -17937,13 +17940,17 @@ end
             local root = char and char:FindFirstChild("HumanoidRootPart")
             if not hum or not root then return end
 
+            -- Refresh cached UserStates every 2 seconds (not every frame)
+            local now = os.clock()
+            if not _cachedBrokenLegsRS or (now - _userStatesRefreshTimer > 2) then
+                _userStatesRefreshTimer = now
+                _cachedUserStates = LocalPlayer:FindFirstChild("UserStates")
+                _cachedBrokenLegsRS = _cachedUserStates and _cachedUserStates:FindFirstChild("BrokenLegs")
+            end
+
             -- Always clear broken legs state every frame
-            local userStates = LocalPlayer:FindFirstChild("UserStates")
-            if userStates then
-                local brokenLegs = userStates:FindFirstChild("BrokenLegs")
-                if brokenLegs then
-                    brokenLegs.Value = false
-                end
+            if _cachedBrokenLegsRS then
+                _cachedBrokenLegsRS.Value = false
             end
 
             -- Check if we're airborne (not touching ground)
@@ -17957,18 +17964,7 @@ end
             end
         end)
 
-        -- Secondary heartbeat loop for redundancy (catches state changes between frames)
-        antiBreakLegsHeartbeatConn = RunService.Heartbeat:Connect(function()
-            if not antiBreakLegsEnabled then return end
-
-            local userStates = LocalPlayer:FindFirstChild("UserStates")
-            if userStates then
-                local brokenLegs = userStates:FindFirstChild("BrokenLegs")
-                if brokenLegs and brokenLegs.Value then
-                    brokenLegs.Value = false
-                end
-            end
-        end)
+        -- PERF: Removed redundant Heartbeat connection. RenderStepped already clears BrokenLegs every frame.
     end
 
     local AntiBreakLegsToggle = ServerModifiersSection:Toggle({
@@ -18366,7 +18362,7 @@ end
             if moveDirection.Magnitude > 0 then
                 moveDirection = moveDirection.Unit * FlySpeed
                 -- Update last move time for anti-AFK (player is actively moving)
-                flyLastMoveTime = tick()
+                flyLastMoveTime = os.clock()
             end
             
             -- Apply smooth velocity with lerp
@@ -18547,8 +18543,33 @@ end
     
     -- Raycast params for wall detection
     local noclipRayParams = nil
+    local _noclipRayParamsLastRebuild = 0
+    local _noclipRayParamsPlayerCount = 0
+    local NOCLIP_RAYPARAMS_REBUILD_INTERVAL = 3 -- Only rebuild every 3 seconds, not every frame
+
+    -- Pre-built direction tables (constants, not rebuilt every call)
+    local NOCLIP_DIRECTIONS_18 = {
+        Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0),
+        Vector3.new(0, 0, 1), Vector3.new(0, 0, -1),
+        Vector3.new(0, 1, 0), Vector3.new(0, -1, 0),
+        Vector3.new(1, 0, 1).Unit, Vector3.new(1, 0, -1).Unit,
+        Vector3.new(-1, 0, 1).Unit, Vector3.new(-1, 0, -1).Unit,
+        Vector3.new(1, 1, 0).Unit, Vector3.new(-1, 1, 0).Unit,
+        Vector3.new(0, 1, 1).Unit, Vector3.new(0, 1, -1).Unit,
+        Vector3.new(1, -1, 0).Unit, Vector3.new(-1, -1, 0).Unit,
+        Vector3.new(0, -1, 1).Unit, Vector3.new(0, -1, -1).Unit,
+    }
     
     local function setupNoclipRayParams()
+        local now = os.clock()
+        local playerCount = #Players:GetPlayers()
+        -- Only rebuild if params don't exist, or enough time has passed, or player count changed
+        if noclipRayParams and (now - _noclipRayParamsLastRebuild < NOCLIP_RAYPARAMS_REBUILD_INTERVAL) and (playerCount == _noclipRayParamsPlayerCount) then
+            return
+        end
+        _noclipRayParamsLastRebuild = now
+        _noclipRayParamsPlayerCount = playerCount
+
         noclipRayParams = RaycastParams.new()
         noclipRayParams.FilterType = Enum.RaycastFilterType.Exclude
         
@@ -18580,27 +18601,11 @@ end
     -- Check if position is inside/touching a collision wall or ceiling
     -- Simple and aggressive: if ANY ray hits something close, we're "in" a wall
     local function isInWall(pos)
-        -- Always refresh raycast params to catch new zombies/players
+        -- Rebuild params only when needed (throttled), not every frame
         setupNoclipRayParams()
         
-        -- Check many directions with short rays
-        local directions = {
-            -- Cardinal
-            Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0),
-            Vector3.new(0, 0, 1), Vector3.new(0, 0, -1),
-            Vector3.new(0, 1, 0), Vector3.new(0, -1, 0),
-            -- Diagonals horizontal
-            Vector3.new(1, 0, 1).Unit, Vector3.new(1, 0, -1).Unit,
-            Vector3.new(-1, 0, 1).Unit, Vector3.new(-1, 0, -1).Unit,
-            -- Diagonals with Y
-            Vector3.new(1, 1, 0).Unit, Vector3.new(-1, 1, 0).Unit,
-            Vector3.new(0, 1, 1).Unit, Vector3.new(0, 1, -1).Unit,
-            Vector3.new(1, -1, 0).Unit, Vector3.new(-1, -1, 0).Unit,
-            Vector3.new(0, -1, 1).Unit, Vector3.new(0, -1, -1).Unit,
-        }
-        
-        -- If ANY direction hits a collidable part within 2 studs, consider inside
-        for _, dir in ipairs(directions) do
+        -- Use pre-built constant directions table (not rebuilt each call)
+        for _, dir in ipairs(NOCLIP_DIRECTIONS_18) do
             local result = workspace:Raycast(pos, dir * 2, noclipRayParams)
             if result and result.Instance and result.Instance.CanCollide then
                 return true
@@ -18613,28 +18618,11 @@ end
     -- More strict check: are we CLEARLY outside? (no walls nearby at all)
     -- This is VERY conservative to avoid teleporting while still inside
     local function isClearlyOutside(pos)
-        -- Always refresh raycast params to catch new zombies/players
-        setupNoclipRayParams()
+        -- Reuse already-cached params (setupNoclipRayParams was just called in isInWall)
+        if not noclipRayParams then setupNoclipRayParams() end
         
-        -- Check all 18 directions with longer rays - must have NO hits to be clearly outside
-        local directions = {
-            -- Cardinal horizontal
-            Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0),
-            Vector3.new(0, 0, 1), Vector3.new(0, 0, -1),
-            -- Diagonal horizontal
-            Vector3.new(1, 0, 1).Unit, Vector3.new(1, 0, -1).Unit,
-            Vector3.new(-1, 0, 1).Unit, Vector3.new(-1, 0, -1).Unit,
-            -- Vertical
-            Vector3.new(0, 1, 0), Vector3.new(0, -1, 0),
-            -- Diagonal with Y
-            Vector3.new(1, 1, 0).Unit, Vector3.new(-1, 1, 0).Unit,
-            Vector3.new(0, 1, 1).Unit, Vector3.new(0, 1, -1).Unit,
-            Vector3.new(1, -1, 0).Unit, Vector3.new(-1, -1, 0).Unit,
-            Vector3.new(0, -1, 1).Unit, Vector3.new(0, -1, -1).Unit,
-        }
-        
-        -- Check ALL directions with 4 stud rays - must have ZERO hits
-        for _, dir in ipairs(directions) do
+        -- Use pre-built constant directions table
+        for _, dir in ipairs(NOCLIP_DIRECTIONS_18) do
             local result = workspace:Raycast(pos, dir * 4, noclipRayParams)
             if result and result.Instance and result.Instance.CanCollide then
                 return false -- Still near something solid
@@ -18674,14 +18662,14 @@ end
     -- Loop teleport to position
     local function noclipLoopTP(targetPos, duration)
         isLoopTeleporting = true
-        teleportEndTime = tick() + (duration or 1)
+        teleportEndTime = os.clock() + (duration or 1)
         
         if noclipTeleportConn then
             noclipTeleportConn:Disconnect()
         end
         
         noclipTeleportConn = RunService.Heartbeat:Connect(function()
-            if not isLoopTeleporting or tick() > teleportEndTime then
+            if not isLoopTeleporting or os.clock() > teleportEndTime then
                 isLoopTeleporting = false
                 if noclipTeleportConn then
                     noclipTeleportConn:Disconnect()
@@ -18730,7 +18718,7 @@ end
         headWasAnchored = true
         
         isInsideWall = true
-        wallEntryTime = tick()
+        wallEntryTime = os.clock()
     end
     
     -- Exit CFrame fly mode (when leaving a wall)
@@ -18784,6 +18772,9 @@ end
         
         -- Main loop - monitor wall entry/exit and handle CFrame movement when inside wall
         -- Use RenderStepped for faster detection (runs before frame renders)
+        -- PERF: Throttle wall raycasts to every 3 frames (was every frame = 18-36 raycasts/frame)
+        local _noclipWallCheckFrame = 0
+        local _noclipLastInWall = false
         noclipCFlyConn = RunService.RenderStepped:Connect(function(deltaTime)
             -- SAFETY: Don't run if noclip is disabled OR if fly is disabled
             if not NoclipEnabled then return end
@@ -18805,8 +18796,14 @@ end
             -- Get current position
             local currentPos = headWasAnchored and headPart.Position or rootPart.Position
             
-            -- Check if we're in a wall
-            local inWall = isInWall(currentPos)
+            -- PERF: Only run expensive wall raycasts every 3 frames
+            _noclipWallCheckFrame = _noclipWallCheckFrame + 1
+            local inWall = _noclipLastInWall -- reuse last result by default
+            if _noclipWallCheckFrame >= 3 then
+                _noclipWallCheckFrame = 0
+                inWall = isInWall(currentPos)
+                _noclipLastInWall = inWall
+            end
             
             if inWall and not isInsideWall then
                 -- Just entered a wall - start CFrame mode
@@ -18814,7 +18811,7 @@ end
                 enterCFrameMode()
             elseif isInsideWall then
                 -- We're in CFrame mode - check if cooldown passed before checking wall exit
-                local timeInWall = tick() - wallEntryTime
+                local timeInWall = os.clock() - wallEntryTime
                 if timeInWall >= WALL_COOLDOWN then
                     -- Cooldown passed, NOW we can check if we CLEARLY left the wall
                     -- Use stricter check - must have NO walls nearby to exit
@@ -18908,6 +18905,26 @@ end
         end)
         
         -- Collision disable loop (with fly check for safety)
+        -- Cache character part and accessory references (rebuilt only on character change)
+        local _noclipCollisionChar = nil
+        local _noclipCollisionParts = {}
+        local function _rebuildNoclipCollisionCache(char)
+            _noclipCollisionChar = char
+            _noclipCollisionParts = {}
+            for _, partName in ipairs(NOCLIP_PARTS) do
+                local part = char:FindFirstChild(partName)
+                if part and part:IsA("BasePart") then
+                    table.insert(_noclipCollisionParts, part)
+                end
+            end
+            for _, child in ipairs(char:GetChildren()) do
+                if child:IsA("Accessory") or child:IsA("Hat") then
+                    local handle = child:FindFirstChild("Handle")
+                    if handle then table.insert(_noclipCollisionParts, handle) end
+                end
+            end
+        end
+
         noclipCollisionConn = RunService.Stepped:Connect(function()
             -- SAFETY: Don't run if noclip is disabled OR if fly is disabled
             if not NoclipEnabled then return end
@@ -18920,20 +18937,17 @@ end
             
             local character = LocalPlayer.Character
             if not character then return end
-            
-            for _, partName in ipairs(NOCLIP_PARTS) do
-                local part = character:FindFirstChild(partName)
-                if part and part:IsA("BasePart") then
-                    pcall(function() part.CanCollide = false end)
-                end
+
+            -- Rebuild cache if character changed
+            if character ~= _noclipCollisionChar then
+                _rebuildNoclipCollisionCache(character)
             end
             
-            for _, child in pairs(character:GetChildren()) do
-                if child:IsA("Accessory") or child:IsA("Hat") then
-                    local handle = child:FindFirstChild("Handle")
-                    if handle then
-                        pcall(function() handle.CanCollide = false end)
-                    end
+            -- Disable collision on all cached parts (no GetChildren call per frame)
+            -- PERF: Removed pcall wrapper - parts are validated from cache
+            for _, part in ipairs(_noclipCollisionParts) do
+                if part.Parent then
+                    part.CanCollide = false
                 end
             end
         end)
@@ -19106,8 +19120,19 @@ end
     
     -- Walk noclip raycast params (separate from fly noclip)
     local walkNoclipRayParams = nil
+    local _walkNoclipRayParamsLastRebuild = 0
+    local _walkNoclipRayParamsPlayerCount = 0
     
     local function setupWalkNoclipRayParams()
+        local now = os.clock()
+        local playerCount = #Players:GetPlayers()
+        -- Only rebuild if params don't exist, or enough time has passed, or player count changed
+        if walkNoclipRayParams and (now - _walkNoclipRayParamsLastRebuild < 3) and (playerCount == _walkNoclipRayParamsPlayerCount) then
+            return
+        end
+        _walkNoclipRayParamsLastRebuild = now
+        _walkNoclipRayParamsPlayerCount = playerCount
+
         walkNoclipRayParams = RaycastParams.new()
         walkNoclipRayParams.FilterType = Enum.RaycastFilterType.Exclude
         
@@ -19131,21 +19156,11 @@ end
     end
     
     local function isWalkInWall(pos)
+        -- Rebuild params only when needed (throttled), not every frame
         setupWalkNoclipRayParams()
         
-        local directions = {
-            Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0),
-            Vector3.new(0, 0, 1), Vector3.new(0, 0, -1),
-            Vector3.new(0, 1, 0), Vector3.new(0, -1, 0),
-            Vector3.new(1, 0, 1).Unit, Vector3.new(1, 0, -1).Unit,
-            Vector3.new(-1, 0, 1).Unit, Vector3.new(-1, 0, -1).Unit,
-            Vector3.new(1, 1, 0).Unit, Vector3.new(-1, 1, 0).Unit,
-            Vector3.new(0, 1, 1).Unit, Vector3.new(0, 1, -1).Unit,
-            Vector3.new(1, -1, 0).Unit, Vector3.new(-1, -1, 0).Unit,
-            Vector3.new(0, -1, 1).Unit, Vector3.new(0, -1, -1).Unit,
-        }
-        
-        for _, dir in ipairs(directions) do
+        -- Use shared pre-built constant directions table (not rebuilt each call)
+        for _, dir in ipairs(NOCLIP_DIRECTIONS_18) do
             local result = workspace:Raycast(pos, dir * 2, walkNoclipRayParams)
             if result and result.Instance and result.Instance.CanCollide then
                 return true
@@ -19156,21 +19171,11 @@ end
     end
     
     local function isWalkClearlyOutside(pos)
-        setupWalkNoclipRayParams()
+        -- Reuse already-cached params (setupWalkNoclipRayParams was just called in isWalkInWall)
+        if not walkNoclipRayParams then setupWalkNoclipRayParams() end
         
-        local directions = {
-            Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0),
-            Vector3.new(0, 0, 1), Vector3.new(0, 0, -1),
-            Vector3.new(1, 0, 1).Unit, Vector3.new(1, 0, -1).Unit,
-            Vector3.new(-1, 0, 1).Unit, Vector3.new(-1, 0, -1).Unit,
-            Vector3.new(0, 1, 0), Vector3.new(0, -1, 0),
-            Vector3.new(1, 1, 0).Unit, Vector3.new(-1, 1, 0).Unit,
-            Vector3.new(0, 1, 1).Unit, Vector3.new(0, 1, -1).Unit,
-            Vector3.new(1, -1, 0).Unit, Vector3.new(-1, -1, 0).Unit,
-            Vector3.new(0, -1, 1).Unit, Vector3.new(0, -1, -1).Unit,
-        }
-        
-        for _, dir in ipairs(directions) do
+        -- Use shared pre-built constant directions table
+        for _, dir in ipairs(NOCLIP_DIRECTIONS_18) do
             local result = workspace:Raycast(pos, dir * 4, walkNoclipRayParams)
             if result and result.Instance and result.Instance.CanCollide then
                 return false
@@ -19205,14 +19210,14 @@ end
     -- Loop teleport to position (bypass mechanic from Fly Noclip)
     local function walkNoclipLoopTP(targetPos, duration)
         walkIsLoopTeleporting = true
-        walkTeleportEndTime = tick() + (duration or 1)
+        walkTeleportEndTime = os.clock() + (duration or 1)
         
         if walkNoclipTeleportConn then
             walkNoclipTeleportConn:Disconnect()
         end
         
         walkNoclipTeleportConn = RunService.Heartbeat:Connect(function()
-            if not walkIsLoopTeleporting or tick() > walkTeleportEndTime then
+            if not walkIsLoopTeleporting or os.clock() > walkTeleportEndTime then
                 walkIsLoopTeleporting = false
                 if walkNoclipTeleportConn then
                     walkNoclipTeleportConn:Disconnect()
@@ -19261,7 +19266,7 @@ end
         walkHeadAnchored = true
         
         walkIsInsideWall = true
-        walkWallEntryTime = tick()
+        walkWallEntryTime = os.clock()
     end
     
     -- Exit CFrame mode (when leaving wall) - bypass mechanic
@@ -19316,6 +19321,9 @@ end
         walkHeadAnchored = false
         
         -- Main loop - monitor wall entry/exit and handle CFrame movement (BYPASS MECHANIC from Fly Noclip)
+        -- PERF: Throttle wall raycasts to every 3 frames
+        local _walkWallCheckFrame = 0
+        local _walkLastInWall = false
         walkNoclipConn = RunService.RenderStepped:Connect(function(deltaTime)
             if not WalkNoclipEnabled then return end
             
@@ -19331,8 +19339,14 @@ end
             -- Get current position
             local currentPos = walkHeadAnchored and headPart.Position or rootPart.Position
             
-            -- Check if we're in a wall (bypass detection)
-            local inWall = isWalkInWall(currentPos)
+            -- PERF: Only run expensive wall raycasts every 3 frames
+            _walkWallCheckFrame = _walkWallCheckFrame + 1
+            local inWall = _walkLastInWall
+            if _walkWallCheckFrame >= 3 then
+                _walkWallCheckFrame = 0
+                inWall = isWalkInWall(currentPos)
+                _walkLastInWall = inWall
+            end
             
             if inWall and not walkIsInsideWall then
                 -- Just entered a wall - start CFrame mode (BYPASS)
@@ -19340,7 +19354,7 @@ end
                 enterWalkCFrameMode()
             elseif walkIsInsideWall then
                 -- We're in CFrame mode - check if cooldown passed before checking wall exit
-                local timeInWall = tick() - walkWallEntryTime
+                local timeInWall = os.clock() - walkWallEntryTime
                 if timeInWall >= WALK_WALL_COOLDOWN then
                     -- Cooldown passed, check if we CLEARLY left the wall
                     if isWalkClearlyOutside(currentPos) then
@@ -19419,25 +19433,42 @@ end
         end)
         
         -- Collision disable loop (bypass mechanic)
+        -- Cache character parts to avoid GetChildren every Stepped frame
+        local _walkNoclipCollisionChar = nil
+        local _walkNoclipCollisionParts = {}
+        local function _rebuildWalkNoclipCollisionCache(char)
+            _walkNoclipCollisionChar = char
+            _walkNoclipCollisionParts = {}
+            for _, partName in ipairs(NOCLIP_PARTS) do
+                local part = char:FindFirstChild(partName)
+                if part and part:IsA("BasePart") then
+                    table.insert(_walkNoclipCollisionParts, part)
+                end
+            end
+            for _, child in ipairs(char:GetChildren()) do
+                if child:IsA("Accessory") or child:IsA("Hat") then
+                    local handle = child:FindFirstChild("Handle")
+                    if handle then table.insert(_walkNoclipCollisionParts, handle) end
+                end
+            end
+        end
+
         walkNoclipCollisionConn = RunService.Stepped:Connect(function()
             if not WalkNoclipEnabled then return end
             
             local character = LocalPlayer.Character
             if not character then return end
-            
-            for _, partName in ipairs(NOCLIP_PARTS) do
-                local part = character:FindFirstChild(partName)
-                if part and part:IsA("BasePart") then
-                    pcall(function() part.CanCollide = false end)
-                end
+
+            -- Rebuild cache if character changed
+            if character ~= _walkNoclipCollisionChar then
+                _rebuildWalkNoclipCollisionCache(character)
             end
             
-            for _, child in pairs(character:GetChildren()) do
-                if child:IsA("Accessory") or child:IsA("Hat") then
-                    local handle = child:FindFirstChild("Handle")
-                    if handle then
-                        pcall(function() handle.CanCollide = false end)
-                    end
+            -- Disable collision on all cached parts (no GetChildren call per frame)
+            -- PERF: Removed pcall wrapper - parts are validated from cache
+            for _, part in ipairs(_walkNoclipCollisionParts) do
+                if part.Parent then
+                    part.CanCollide = false
                 end
             end
         end)
@@ -19630,7 +19661,7 @@ do -- // Maps Hacks Tab
         local rootPos = root.Position
         
         -- Cache bridge reference
-        local now = tick()
+        local now = os.clock()
         if now - lastBridgeCheck > BRIDGE_CACHE_INTERVAL then
             lastBridgeCheck = now
             cachedBridge = nil
@@ -19901,7 +19932,7 @@ do -- // Maps Hacks Tab
         if not root then return nil end
         local rootPos = root.Position
         
-        local now = tick()
+        local now = os.clock()
         
         -- Re-scan for prompts periodically (but much less aggressively)
         if now - lastPromptScan > PROMPT_SCAN_INTERVAL then
@@ -20090,7 +20121,7 @@ do -- // Maps Hacks Tab
     local vardohusScanLoop = nil -- single shared scan loop (not per-toggle)
     
     -- Track items pending removal (grace period to prevent flicker like zombie ESP)
-    local ESPPendingRemoval = setmetatable({}, { __mode = "k" }) -- [item] = tick() when marked
+    local ESPPendingRemoval = setmetatable({}, { __mode = "k" }) -- [item] = os.clock() when marked
     local ESP_REMOVAL_GRACE_PERIOD = 0.5 -- Same as zombie ESP
     
     -- Performance constants (copied from zombie ESP pattern)
@@ -20272,7 +20303,7 @@ do -- // Maps Hacks Tab
         end
         if not cachedVardohusRef then return {}, {} end
         
-        local now = tick()
+        local now = os.clock()
         -- Return cached results if still fresh (items are static, no need to rescan often)
         if not forceRefresh and (now - lastItemCollectTime) < ITEM_COLLECT_INTERVAL then
             return cachedRoundshots, cachedSwabs
@@ -20306,7 +20337,7 @@ do -- // Maps Hacks Tab
     
     -- Scan and create ESP (same pattern as zombie ESP ScanAll)
     local function ScanAllVardohus()
-        local now = tick()
+        local now = os.clock()
         
         -- Throttle scanning (same as zombie ESP)
         if now - lastVardohusScan < VARDOHUS_SCAN_INTERVAL then
@@ -20405,7 +20436,7 @@ do -- // Maps Hacks Tab
     local _vardohusLastUpdate = 0
     local VARDOHUS_UPDATE_INTERVAL = 0.25 -- 4fps is plenty for static item ESP (was 0.1)
     local function UpdateAllVardohus()
-        local now = tick()
+        local now = os.clock()
         if now - _vardohusLastUpdate < VARDOHUS_UPDATE_INTERVAL then return end
         _vardohusLastUpdate = now
 
@@ -20813,31 +20844,44 @@ do -- // PVP Tab
         local char = LocalPlayer.Character
         if not char then return end
         
-        if weapon.Parent ~= char then
-            weapon.Parent = char
-            task.wait(0.1)
-        end
-        
-        local remoteEvent = weapon:FindFirstChild("RemoteEvent")
-        if not remoteEvent then return end
-        
-        pcall(function()
-            remoteEvent:FireServer("PrepareSwing")
-            remoteEvent:FireServer("Swing", "Side")
-            local head = targetPlayer.Character:FindFirstChild("Head")
-            if head then
-                remoteEvent:FireServer("HitPlayer", targetPlayer.Character:FindFirstChild("Humanoid"), head.Position)
+        -- PERF FIX: Wrapped in task.spawn so task.wait() does NOT stall the heartbeat thread
+        task.spawn(function()
+            if weapon.Parent ~= char then
+                weapon.Parent = char
+                task.wait(0.1)
             end
+            
+            local remoteEvent = weapon:FindFirstChild("RemoteEvent")
+            if not remoteEvent then return end
+            
+            pcall(function()
+                remoteEvent:FireServer("PrepareSwing")
+                remoteEvent:FireServer("Swing", "Side")
+                local head = targetPlayer.Character and targetPlayer.Character:FindFirstChild("Head")
+                if head then
+                    remoteEvent:FireServer("HitPlayer", targetPlayer.Character:FindFirstChild("Humanoid"), head.Position)
+                end
+            end)
         end)
     end
     
+    -- Pre-allocated buffers for getNearbyEnemyPlayers (reused each tick, no GC)
+    local _pvpTargetsBuf = {}
+    local _pvpDistsBuf = {}
+    local _pvpResultBuf = {}
+
     -- Get sorted list of nearby enemy players
     local function getNearbyEnemyPlayers(range, maxTargets)
-        local targets = {}
         local char = LocalPlayer.Character
-        if not char then return targets end
+        if not char then return _pvpResultBuf end
         local myRoot = char:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return targets end
+        if not myRoot then return _pvpResultBuf end
+
+        -- Clear buffers without allocating new tables
+        local tCount = 0
+        for i = #_pvpTargetsBuf, 1, -1 do _pvpTargetsBuf[i] = nil end
+        for i = #_pvpDistsBuf, 1, -1 do _pvpDistsBuf[i] = nil end
+        for i = #_pvpResultBuf, 1, -1 do _pvpResultBuf[i] = nil end
         
         for _, targetPlayer in ipairs(Players:GetPlayers()) do
             if targetPlayer ~= LocalPlayer and targetPlayer.Character then
@@ -20846,21 +20890,35 @@ do -- // PVP Tab
                 if targetHumanoid and targetHumanoid.Health > 0 and targetRoot and not isSameTeam(targetPlayer) then
                     local dist = (targetRoot.Position - myRoot.Position).Magnitude
                     if dist <= range then
-                        table.insert(targets, {player = targetPlayer, dist = dist})
+                        tCount = tCount + 1
+                        _pvpTargetsBuf[tCount] = targetPlayer
+                        _pvpDistsBuf[tCount] = dist
                     end
                 end
             end
         end
         
-        -- Sort by distance (closest first)
-        table.sort(targets, function(a, b) return a.dist < b.dist end)
+        -- Sort by distance using parallel arrays (insertion sort - fast for small N)
+        if tCount > 1 then
+            for i = 2, tCount do
+                local tp, td = _pvpTargetsBuf[i], _pvpDistsBuf[i]
+                local j = i - 1
+                while j >= 1 and _pvpDistsBuf[j] > td do
+                    _pvpTargetsBuf[j+1] = _pvpTargetsBuf[j]
+                    _pvpDistsBuf[j+1] = _pvpDistsBuf[j]
+                    j = j - 1
+                end
+                _pvpTargetsBuf[j+1] = tp
+                _pvpDistsBuf[j+1] = td
+            end
+        end
         
         -- Return up to maxTargets
-        local result = {}
-        for i = 1, math.min(#targets, maxTargets) do
-            table.insert(result, targets[i].player)
+        local rCount = math.min(tCount, maxTargets)
+        for i = 1, rCount do
+            _pvpResultBuf[i] = _pvpTargetsBuf[i]
         end
-        return result
+        return _pvpResultBuf
     end
     
     local pvpMeleeLastAttack = 0
@@ -20873,8 +20931,8 @@ do -- // PVP Tab
         if not humanoid or humanoid.Health <= 0 then return end
         
         -- Delay check
-        if tick() - pvpMeleeLastAttack < PVP_DELAY then return end
-        pvpMeleeLastAttack = tick()
+        if os.clock() - pvpMeleeLastAttack < PVP_DELAY then return end
+        pvpMeleeLastAttack = os.clock()
         
         local targets = getNearbyEnemyPlayers(PVP_RANGE, PVP_MULTI_TARGET)
         for _, targetPlayer in ipairs(targets) do
@@ -20941,20 +20999,23 @@ do -- // PVP Tab
         local char = LocalPlayer.Character
         if not char then return end
         
-        if weapon.Parent ~= char then
-            weapon.Parent = char
-            task.wait(0.1)
-        end
-        
-        local remoteEvent = weapon:FindFirstChild("RemoteEvent")
-        if not remoteEvent then return end
-        
-        pcall(function()
-            remoteEvent:FireServer("ThrustBayonet")
-            local head = targetPlayer.Character:FindFirstChild("Head")
-            if head then
-                remoteEvent:FireServer("Bayonet_HitPlayer", targetPlayer.Character:FindFirstChild("Humanoid"), head.Position)
+        -- PERF FIX: Wrapped in task.spawn so task.wait() does NOT stall the heartbeat thread
+        task.spawn(function()
+            if weapon.Parent ~= char then
+                weapon.Parent = char
+                task.wait(0.1)
             end
+            
+            local remoteEvent = weapon:FindFirstChild("RemoteEvent")
+            if not remoteEvent then return end
+            
+            pcall(function()
+                remoteEvent:FireServer("ThrustBayonet")
+                local head = targetPlayer.Character and targetPlayer.Character:FindFirstChild("Head")
+                if head then
+                    remoteEvent:FireServer("Bayonet_HitPlayer", targetPlayer.Character:FindFirstChild("Humanoid"), head.Position)
+                end
+            end)
         end)
     end
     
@@ -20968,8 +21029,8 @@ do -- // PVP Tab
         if not humanoid or humanoid.Health <= 0 then return end
         
         -- Delay check
-        if tick() - pvpBayonetLastAttack < PVP_DELAY then return end
-        pvpBayonetLastAttack = tick()
+        if os.clock() - pvpBayonetLastAttack < PVP_DELAY then return end
+        pvpBayonetLastAttack = os.clock()
         
         local targets = getNearbyEnemyPlayers(PVP_RANGE, PVP_MULTI_TARGET)
         for _, targetPlayer in ipairs(targets) do
@@ -21164,6 +21225,8 @@ do -- // PVP Tab
     local currentGodTarget = nil
     local lastTargetSwitch = 0
     local floatOffset = 0
+    local _godLastTargetScan = 0
+    local _godCachedTargets = {}
     
     local GOD_SAFE_DISTANCE = 3
     local GOD_FLOAT_HEIGHT = 3
@@ -21171,8 +21234,13 @@ do -- // PVP Tab
     local GOD_COOLDOWN = 0.6
     
     -- Updated to respect whitelist
+    -- Pre-allocated buffer for getValidPVPTargets
+    local _validPVPTargetsBuf = {}
+
     local function getValidPVPTargets()
-        local targets = {}
+        -- Clear without allocating new table
+        for i = #_validPVPTargetsBuf, 1, -1 do _validPVPTargetsBuf[i] = nil end
+        local count = 0
         
         for _, targetPlayer in ipairs(Players:GetPlayers()) do
             if targetPlayer ~= LocalPlayer and 
@@ -21180,11 +21248,12 @@ do -- // PVP Tab
                targetPlayer.Character:FindFirstChild("HumanoidRootPart") and
                (not LocalPlayer.Team or not targetPlayer.Team or targetPlayer.Team ~= LocalPlayer.Team) and
                not isPVPWhitelisted(targetPlayer.Name) then
-                table.insert(targets, targetPlayer)
+                count = count + 1
+                _validPVPTargetsBuf[count] = targetPlayer
             end
         end
         
-        return targets
+        return _validPVPTargetsBuf
     end
     
     local function godTeleport()
@@ -21193,21 +21262,27 @@ do -- // PVP Tab
         local myRoot = char:FindFirstChild("HumanoidRootPart")
         if not myRoot then return end
         
-        local targets = getValidPVPTargets()
+        -- Only rescan players every 0.5s - player list rarely changes mid-combat
+        local now = os.clock()
+        if now - _godLastTargetScan >= 0.5 then
+            _godLastTargetScan = now
+            _godCachedTargets = getValidPVPTargets()
+        end
+        local targets = _godCachedTargets
         if #targets == 0 then
             return
         end
         
-        if tick() - lastTargetSwitch >= GOD_COOLDOWN then
+        if os.clock() - lastTargetSwitch >= GOD_COOLDOWN then
             currentGodTarget = targets[math.random(1, #targets)]
-            lastTargetSwitch = tick()
+            lastTargetSwitch = os.clock()
             floatOffset = 0
         end
         
         if currentGodTarget and currentGodTarget.Character then
             local targetRoot = currentGodTarget.Character:FindFirstChild("HumanoidRootPart")
             if targetRoot then
-                floatOffset = math.sin(tick() * GOD_FLOAT_SPEED) * GOD_FLOAT_HEIGHT
+                floatOffset = math.sin(os.clock() * GOD_FLOAT_SPEED) * GOD_FLOAT_HEIGHT
                 
                 local backVector = targetRoot.CFrame.LookVector * -GOD_SAFE_DISTANCE
                 local floatVector = Vector3.new(0, floatOffset, 0)
@@ -21682,7 +21757,7 @@ do -- // Keybinds and UI Tab
                 dragging = true
                 dragStart = input.Position
                 startPos = button.Position
-                holdStart = tick()
+                holdStart = os.clock()
                 isHolding = true
                 
                 TweenService:Create(button, TweenInfo.new(0.08, Enum.EasingStyle.Quad), {
@@ -21690,10 +21765,10 @@ do -- // Keybinds and UI Tab
                 }):Play()
                 
                 task.spawn(function()
-                    while isHolding and tick() - holdStart < 0.5 do
+                    while isHolding and os.clock() - holdStart < 0.5 do
                         task.wait(0.02)
                     end
-                    if isHolding and tick() - holdStart >= 0.5 and not settingsOpen then
+                    if isHolding and os.clock() - holdStart >= 0.5 and not settingsOpen then
                         isHolding = false
                         dragging = false
                         TweenService:Create(buttonStroke, TweenInfo.new(0.08), {Thickness = 3}):Play()
@@ -21734,7 +21809,7 @@ do -- // Keybinds and UI Tab
                     Size = UDim2.new(0, MobileButtonSettings.Size, 0, MobileButtonSettings.Size)
                 }):Play()
                 
-                if isHolding and not settingsOpen and tick() - holdStart < 0.5 then
+                if isHolding and not settingsOpen and os.clock() - holdStart < 0.5 then
                     local toggle = _G.KatchiToggleElements and _G.KatchiToggleElements[toggleKey]
                     if toggle and toggle.Set then
                         local currentState = getStateFunc and getStateFunc() or false
@@ -22521,7 +22596,7 @@ do -- // Feedback Tab
         Title = "Why Feedback Matters",
         Desc = "Your feedback helps us improve Katchi Hub.\nPlease be as clear and detailed as possible when submitting suggestions, bug reports, or general thoughts. All feedback will be reviewed by the developer.",
     })
-
+    
     local webhookUrl = "https://discord.com/api/webhooks/1472599417180917815/b2nXVrW-Tewm-Tz6hoe5KqRIGzQ9M2gNl1ctPlK_rThKoR3-t67AOYnUh2lgetyKj6Qj"
     local feedbackText = ""
 
@@ -22624,7 +22699,7 @@ do -- // Final task.spawn and connects
             Icon = "zap",
         })
 
-    print("Katchi Hub v4.8 successfully loaded!")
+    print("Katchi Hub v4.9 successfully loaded!")
     print("Made by Yuki")
     print("i like dawgs!")
 end -- end of Final block
@@ -22637,6 +22712,17 @@ do -- // Changelog Popup UI
     -- Changelog entries (each entry is a version with its changes)
     -- Format: { version = "vX.X.X", date = "Date", changes = { {type = "fix/feature/update", text = "Description"}, ... } }
     local CHANGELOG_ENTRIES = {
+                                                                         {
+            version = "v4.9",
+            date = "February 2026",
+            changes = {
+                {type = "feature", text = "Added Copy Audio ID"},
+                {type = "feature", text = "Added Audio Details (Can Copy Audio ID)"},
+                {type = "feature", text = "Added Custom Audio (Paste Audio and play them)"},
+                {type = "feature", text = "Added Music Presets"},
+                {type = "fix", text = "Fixed Minor Bugs."},
+            }
+        },
                                                                          {
             version = "v4.8",
             date = "February 2026",
