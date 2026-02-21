@@ -8371,9 +8371,9 @@ local DEBUG = false
 
 -- Anti-Detection Settings (Balanced: fast but safe)
 local KILLAURA_ANTICHEAT_BYPASS = true -- Enable anti-detection measures
-local KILLAURA_MIN_DELAY = 0.025 -- Minimum delay between attacks (25ms - fast but safe)
+local KILLAURA_MIN_DELAY = 0.028-- Minimum delay between attacks (25ms - fast but safe)
 local KILLAURA_RANDOMIZE_DELAY = true -- Add random variation to timing
-local KILLAURA_MAX_ATTACKS_PER_SECOND = 34 -- Maximum attacks per second (faster than do.lua)
+local KILLAURA_MAX_ATTACKS_PER_SECOND = 30 -- Maximum attacks per second (faster than do.lua)
 local KILLAURA_ATTACK_COUNTER = 0 -- Track attacks this second
 local KILLAURA_LAST_SECOND = 0 -- Track which second we're in
 local KILLAURA_VALIDATE_DISTANCE = false -- Disabled for better range
