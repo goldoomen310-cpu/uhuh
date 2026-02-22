@@ -9257,6 +9257,7 @@ do -- // Sapper Section in Classes Tab
     local AutoRepairConn = nil
     local AutoRepairRange = 25 -- Range to search for buildable structures
     local AutoRepairCooldown = 0.5 -- OPTIMIZED: 0.5s instead of 0.15s (repairs happen server-side, no need for spam)
+    local AutoRepairTargetMode = "None"
     
     -- OPTIMIZED: Cache hammer remote and folder references
     local cachedHammerRemote = nil
@@ -9463,16 +9464,102 @@ do -- // Sapper Section in Classes Tab
         return buildables
     end
     
-    -- Main repair function - repairs all nearby structures
+    -- Build a rich list of nearby buildables with health data attached
+    local function getRichBuildables()
+        local char = LocalPlayer.Character
+        if not char then return {} end
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if not root then return {} end
+        local rootPos = root.Position
+        local rangeSq = AutoRepairRange * AutoRepairRange
+
+        local results = {}
+        local seen = {}
+
+        local folders = getBuildableFolders()
+
+        local function tryAdd(inst)
+            local pos = nil
+            if inst:IsA("BasePart") then
+                pos = inst.Position
+            elseif inst:IsA("Model") then
+                local p = inst.PrimaryPart or inst:FindFirstChildWhichIsA("BasePart")
+                if p then pos = p.Position end
+            end
+            if not pos then return end
+
+            local dx, dy, dz = pos.X - rootPos.X, pos.Y - rootPos.Y, pos.Z - rootPos.Z
+            local distSq = dx*dx + dy*dy + dz*dz
+            if distSq > rangeSq then return end
+
+            local healthObj = inst:FindFirstChild("BuildingHealth")
+                or inst:FindFirstChild("ConstructHealth")
+            if not healthObj then
+                local h = inst:FindFirstChild("Health")
+                if h and h:IsA("NumberValue") then healthObj = h end
+            end
+            if not healthObj or seen[healthObj] then return end
+            seen[healthObj] = true
+
+            local cur, max
+            pcall(function()
+                cur = healthObj.Value
+                max = healthObj:GetAttribute("MaxHealth") or healthObj:GetAttribute("Max") or 100
+            end)
+            if not cur or not max or max == 0 then return end
+            if cur >= max then return end -- fully repaired, skip
+
+            results[#results + 1] = {
+                obj = healthObj,
+                cur = cur,
+                max = max,
+                ratio = cur / max,
+                dist = math.sqrt(distSq)
+            }
+        end
+
+        for _, folder in ipairs(folders) do
+            for _, inst in ipairs(folder:GetChildren()) do
+                tryAdd(inst)
+                if inst:IsA("Model") or inst:IsA("Folder") then
+                    for _, sub in ipairs(inst:GetChildren()) do
+                        tryAdd(sub)
+                    end
+                end
+            end
+        end
+
+        return results
+    end
+
+    -- Main repair function - single target based on mode
     local function doAutoRepair()
+        if AutoRepairTargetMode == "None" then return end
+
         local hammerRemote = getHammerRemote()
         if not hammerRemote then return end
-        
-        local buildables = getNearbyBuildables()
-        
-        for _, healthValue in ipairs(buildables) do
+
+        local list = getRichBuildables()
+        if #list == 0 then return end
+
+        local target = nil
+
+        if AutoRepairTargetMode == "Closest" then
+            table.sort(list, function(a, b) return a.dist < b.dist end)
+            target = list[1].obj
+
+        elseif AutoRepairTargetMode == "LowestHealth" then
+            table.sort(list, function(a, b)
+                -- Sort by ratio first (lowest % HP), break ties by raw HP
+                if a.ratio ~= b.ratio then return a.ratio < b.ratio end
+                return a.cur < b.cur
+            end)
+            target = list[1].obj
+        end
+
+        if target then
             pcall(function()
-                _G.SafeFireServer(hammerRemote, "Repair", healthValue)
+                _G.SafeFireServer(hammerRemote, "Repair", target)
             end)
         end
     end
@@ -9513,6 +9600,23 @@ do -- // Sapper Section in Classes Tab
                     Duration = 2,
                     Icon = "x",
                 })
+            end
+        end
+    })
+
+    SapperSection:Dropdown({
+        Title = "Repair Target Mode",
+        Flag = "Classes_AutoRepairMode",
+        Desc = "Select A Target",
+        Values = { "Closest Structure", "Lowest Health Structure" },
+        Default = nil,
+        Callback = function(value)
+            if value == "Closest Structure" then
+                AutoRepairTargetMode = "Closest"
+            elseif value == "Lowest Health Structure" then
+                AutoRepairTargetMode = "LowestHealth"
+            else
+                AutoRepairTargetMode = "None"
             end
         end
     })
@@ -18247,6 +18351,105 @@ end
         end
     })
 
+    -- === INVISIBLE ===
+    local invisible80Enabled = false
+    local invisAnimTrack = nil
+    local invisHeartbeatConn = nil
+    local invisReloadDebounce = false
+    local INVIS_ANIM_ID = "rbxassetid://12405138961"
+
+    local function loadInvisAnim(char)
+        if invisReloadDebounce then return end
+        invisReloadDebounce = true
+        pcall(function()
+            char = char or LocalPlayer.Character
+            if not char then return end
+            local hum = char:FindFirstChild("Humanoid")
+            if not hum or hum.Health <= 0 then return end
+            local animator = hum:FindFirstChildOfClass("Animator")
+            if not animator then return end
+            if invisAnimTrack then
+                pcall(function() invisAnimTrack:Stop(0) end)
+                invisAnimTrack = nil
+            end
+            local anim = Instance.new("Animation")
+            anim.AnimationId = INVIS_ANIM_ID
+            invisAnimTrack = animator:LoadAnimation(anim)
+            invisAnimTrack.Priority = Enum.AnimationPriority.Action4
+            invisAnimTrack.Looped = true
+            invisAnimTrack:Play(0)
+            invisAnimTrack:AdjustSpeed(0)
+        end)
+        task.delay(0.2, function() invisReloadDebounce = false end)
+    end
+
+    local function stopInvis()
+        if invisHeartbeatConn then
+            invisHeartbeatConn:Disconnect()
+            invisHeartbeatConn = nil
+        end
+        if invisAnimTrack then
+            pcall(function() invisAnimTrack:Stop(0) end)
+            invisAnimTrack = nil
+        end
+    end
+
+    local function startInvis()
+        local char = LocalPlayer.Character
+        if not char then return end
+        loadInvisAnim(char)
+        invisHeartbeatConn = RunService.Heartbeat:Connect(function()
+            if not invisible80Enabled then return end
+            if not invisAnimTrack or not invisAnimTrack.IsPlaying then
+                loadInvisAnim()
+                return
+            end
+            if invisAnimTrack.Speed ~= 0 then
+                invisAnimTrack:AdjustSpeed(0)
+            end
+        end)
+    end
+
+    LocalPlayer.CharacterAdded:Connect(function(char)
+        invisAnimTrack = nil
+        invisReloadDebounce = false
+        if invisible80Enabled then
+            local hum = char:WaitForChild("Humanoid", 5)
+            if hum then
+                hum:WaitForChild("Animator", 5)
+                task.wait(0.5)
+                loadInvisAnim(char)
+            end
+        end
+    end)
+
+    ServerModifiersSection:Toggle({
+        Title = "Invisible",
+        Flag = "ServerMods_Invisible",
+        Desc = "Shamblers cant hit you and igniters cant burn you.",
+        Default = false,
+        Callback = function(state)
+            invisible80Enabled = state
+            if state then
+                startInvis()
+                WindUI:Notify({
+                    Title = "Server Modifiers",
+                    Content = "Invisible enabled.",
+                    Duration = 2,
+                    Icon = "eye-off",
+                })
+            else
+                stopInvis()
+                WindUI:Notify({
+                    Title = "Server Modifiers",
+                    Content = "Invisible disabled.",
+                    Duration = 2,
+                    Icon = "eye",
+                })
+            end
+        end
+    })
+
     -- === WALK NOCLIP (Independent from Fly) ===
     local WalkNoclipEnabled = false
     _G.KatchiWalkNoclipEnabled = false
@@ -22655,4 +22858,4 @@ do -- // Changelog Popup UI
             TweenService:Create(CloseButton, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(180, 50, 50)}):Play()
         end)
     end)
-end -- end of Changelog Popup UI
+end -- end of Changelog Popup
