@@ -1,87 +1,14 @@
 do
 --[[
-    ADVANCED BYPASS ANTI-CHEAT SYSTEM v2.0
+    STREAMLINED ANTI-CHEAT BYPASS v3.0
     
-    Features:
-    - Breaks the game's security system
-    - Bypasses almost all types of anti-cheat systems
-    - Prevents being kicked/banned
-    - Modifies settings without being caught
-    - Blocks suspicious data transmission to server
-    - Property emulation for stealth
-    
-    Executor Support: Works best with Synapse X, Script-Ware, Fluxus, etc.
-    Gracefully degrades on basic executors.
+    Lean bypass system - only essential hooks, zero background loops.
+    All dead code removed for maximum performance.
 ]]
-
--- Set to true to enable debug messages for anti-ban system
-local ANTIBAN_DEBUG = false
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local StarterGui = game:GetService("StarterGui")
 local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
--- ===== EXECUTOR CAPABILITY DETECTION =====
-local ExecutorCapabilities = {
-    hasHookMetamethod = hookmetamethod ~= nil,
-    hasHookFunction = hookfunction ~= nil,
-    hasNewCClosure = newcclosure ~= nil,
-    hasCheckCaller = checkcaller ~= nil,
-    hasGetHui = gethui ~= nil,
-    hasSynProtect = syn and syn.protect_gui ~= nil,
-    hasGetNamecallMethod = getnamecallmethod ~= nil,
-    hasSetNamecallMethod = setnamecallmethod ~= nil,
-    hasGetRawMetatable = getrawmetatable ~= nil,
-    hasSetReadOnly = setreadonly ~= nil,
-    hasFireSignal = firesignal ~= nil,
-    hasGetConnections = getconnections ~= nil,
-    hasGetGc = getgc ~= nil,
-    hasGetUpvalue = debug and debug.getupvalue ~= nil,
-    hasSetUpvalue = debug and debug.setupvalue ~= nil,
-    -- Advanced hooks (executor-specific)
-    hasAddGetHook = false, -- Will check below
-    hasAddSetHook = false,
-    hasAddPropertyEmulator = false,
-}
-
--- Check for advanced hook functions (these vary by executor)
-pcall(function()
-    ExecutorCapabilities.hasAddGetHook = type(AddGetHook) == "function"
-end)
-pcall(function()
-    ExecutorCapabilities.hasAddSetHook = type(AddSetHook) == "function"
-end)
-pcall(function()
-    ExecutorCapabilities.hasAddPropertyEmulator = type(AddPropertyEmulator) == "function"
-end)
-
--- Alternative names for these functions in some executors
-if not ExecutorCapabilities.hasAddGetHook then
-    pcall(function()
-        if type(sethook) == "function" or type(gethook) == "function" then
-            ExecutorCapabilities.hasAdvancedHooks = true
-        end
-    end)
-end
-
-local function getExecutorName()
-    local name = "Unknown"
-    pcall(function()
-        if identifyexecutor then
-            name = identifyexecutor()
-        elseif getexecutorname then
-            name = getexecutorname()
-        end
-    end)
-    return name
-end
-
-if ANTIBAN_DEBUG then
-    warn("[ANTI-BAN] Executor: " .. getExecutorName())
-    warn("[ANTI-BAN] Advanced Hooks Available: " .. tostring(ExecutorCapabilities.hasAddGetHook or ExecutorCapabilities.hasAddSetHook))
-end
 
 -- ===== 1. ADVANCED STEALTH GUI PROTECTION (Enhanced v3) =====
 -- Multi-layer protection system with instance cloaking, hook-based hiding, and deep protection
@@ -138,21 +65,6 @@ local function getRandomInstanceName()
     local base = STEALTH_INSTANCE_NAMES[math.random(1, #STEALTH_INSTANCE_NAMES)]
     local rand1 = math.random(10000, 99999)
     return base .. "_" .. rand1
-end
-
--- Generate random child element names (frames, labels, buttons)
-local function getRandomChildName(className)
-    local prefixes = {
-        Frame = {"Container", "Holder", "Panel", "Box", "Region", "Area"},
-        TextLabel = {"Label", "Text", "Display", "Info", "Title", "Desc"},
-        TextButton = {"Button", "Btn", "Action", "Control", "Trigger"},
-        ImageLabel = {"Icon", "Image", "Graphic", "Visual", "Sprite"},
-        ImageButton = {"IconBtn", "ImgButton", "Visual", "Sprite"},
-        ScrollingFrame = {"Scroll", "List", "Content", "Items"},
-        TextBox = {"Input", "Field", "Entry", "TextInput"},
-    }
-    local options = prefixes[className] or {"Element", "Child", "Item", "Node"}
-    return options[math.random(1, #options)] .. "_" .. math.random(1000, 9999)
 end
 
 -- ===== INSTANCE CLOAKING SYSTEM =====
@@ -230,10 +142,6 @@ local function setupInstanceCloaking()
         
         folder:Destroy()
         CloakingEnabled = true
-        
-        if ANTIBAN_DEBUG then
-            warn("[ANTI-BAN] Instance cloaking system active")
-        end
     end)
 end
 
@@ -260,49 +168,14 @@ local function uncloakInstance(instance)
     end)
 end
 
--- ===== DEEP PROTECTION SYSTEM =====
--- Protects all child elements with stealth names
-
-local function protectAllChildren(parent)
-    if not parent then return end
-    pcall(function()
-        for _, child in ipairs(parent:GetDescendants()) do
-            if child:IsA("GuiObject") or child:IsA("GuiBase") then
-                child.Name = getRandomChildName(child.ClassName)
-                ProtectedInstances[child] = true
-            end
-        end
-    end)
-end
-
--- Watch for new children and protect them
-local function watchAndProtectChildren(parent)
-    if not parent then return end
-    pcall(function()
-        parent.DescendantAdded:Connect(function(desc)
-            if desc:IsA("GuiObject") or desc:IsA("GuiBase") then
-                task.defer(function()
-                    desc.Name = getRandomChildName(desc.ClassName)
-                    ProtectedInstances[desc] = true
-                    CloakedInstances[desc] = true
-                end)
-            end
-        end)
-    end)
-end
-
 -- ===== MAIN GUI PROTECTION FUNCTION =====
--- Enhanced GUI protection with multiple fallback methods and deep protection
--- PERFORMANCE: Only protects OUR script-created GUIs, not game GUIs
-
+-- Lightweight GUI protection - just parent, name, and cloak
 local function protectGUI(gui)
     if not gui then return end
     
-    -- PERFORMANCE: Skip if already protected (prevents memory leak from repeated protection)
+    -- Skip if already protected
     if AlreadyProtectedGUIs[gui] then return end
     AlreadyProtectedGUIs[gui] = true
-    
-    -- PERFORMANCE: Mark as our GUI so we only rotate/protect our own GUIs
     OurScriptGUIs[gui] = true
     
     pcall(function()
@@ -356,11 +229,7 @@ local function protectGUI(gui)
         -- Step 5: Cloak the GUI from GetChildren/FindFirstChild
         cloakInstance(gui)
         
-        -- PERFORMANCE: Skip deep child protection (causes overhead)
-        -- protectAllChildren(gui) -- DISABLED for performance
-        
-        -- PERFORMANCE: Skip child watching (causes memory leak from connections)
-        -- watchAndProtectChildren(gui) -- DISABLED for performance
+
     end)
 end
 
@@ -381,18 +250,6 @@ local function createProtectedScreenGui(name)
     gui.ResetOnSpawn = false
     protectGUI(gui)
     return gui
-end
-
--- Check if a name looks like a protected/stealth name
-local function isStealthName(name)
-    if not name or type(name) ~= "string" then return false end
-    for _, stealthBase in ipairs(STEALTH_GUI_NAMES) do
-        if name:find(stealthBase) then return true end
-    end
-    for _, stealthBase in ipairs(STEALTH_INSTANCE_NAMES) do
-        if name:find(stealthBase) then return true end
-    end
-    return false
 end
 
 -- ===== PERIODIC NAME ROTATION =====
@@ -468,8 +325,6 @@ _G.protectInstance = protectInstance
 _G.createProtectedScreenGui = createProtectedScreenGui
 _G.getRandomStealthName = getRandomStealthName
 _G.getRandomInstanceName = getRandomInstanceName
-_G.getRandomChildName = getRandomChildName
-_G.isStealthName = isStealthName
 _G.cloakInstance = cloakInstance
 _G.uncloakInstance = uncloakInstance
 _G.ProtectedGUIs = ProtectedGUIs
@@ -485,14 +340,10 @@ local ESPProtectedInstances = setmetatable({}, { __mode = "k" }) -- Weak keys fo
 local function protectESP(instance)
     if not instance then return end
     if ESPProtectedInstances[instance] then return end -- Already protected
-    
     pcall(function()
-        -- Add to protection tables (makes it invisible to GetChildren/GetDescendants scans)
         ProtectedInstances[instance] = true
         CloakedInstances[instance] = true
         ESPProtectedInstances[instance] = true
-        
-        -- Also protect all descendants
         for _, desc in ipairs(instance:GetDescendants()) do
             ProtectedInstances[desc] = true
             CloakedInstances[desc] = true
@@ -501,87 +352,15 @@ local function protectESP(instance)
     end)
 end
 
--- Scan and protect all ESP instances in a table
-local function protectESPData(espDataTable)
-    if not espDataTable then return end
-    for _, data in pairs(espDataTable) do
-        if data then
-            if data.highlight then protectESP(data.highlight) end
-            if data.billboard then protectESP(data.billboard) end
-            if data.dot then protectESP(data.dot) end
-        end
-    end
-end
-
--- Periodic ESP protection scanner
--- Scans for our ESP visuals and ensures they're protected
-local function startESPProtectionScanner()
-    task.defer(function()
-        task.wait(5) -- Initial delay
-        while true do
-            -- PERFORMANCE: Only scan if there's actual ESP data to protect
-            local hasData = false
-            if ESPData then
-                for _, typeData in pairs(ESPData) do
-                    if next(typeData) then hasData = true break end
-                end
-            end
-            if PlayerESPData and next(PlayerESPData) then hasData = true end
-            if activeHighlight or activeAimDot then hasData = true end
-            if selfESPData and (selfESPData.Highlight or selfESPData.Billboard) then hasData = true end
-            
-            if hasData then
-                pcall(function()
-                    -- Protect any ESPData entries
-                    if ESPData then
-                        for espType, typeData in pairs(ESPData) do
-                            protectESPData(typeData)
-                        end
-                    end
-                    
-                    -- Protect PlayerESPData
-                    if PlayerESPData then
-                        for player, data in pairs(PlayerESPData) do
-                            if data then
-                                if data.Highlight then protectESP(data.Highlight) end
-                                if data.Billboard then protectESP(data.Billboard) end
-                            end
-                        end
-                    end
-                    
-                    -- Protect active target visuals
-                    if activeHighlight then protectESP(activeHighlight) end
-                    if activeAimDot then protectESP(activeAimDot) end
-                    if activeAimDotPart then protectESP(activeAimDotPart) end
-                    
-                    -- Protect Self ESP visuals
-                    if selfESPData then
-                        if selfESPData.Highlight then protectESP(selfESPData.Highlight) end
-                        if selfESPData.Billboard then protectESP(selfESPData.Billboard) end
-                    end
-                end)
-                task.wait(15) -- PERFORMANCE: Scan every 15 seconds when active
-            else
-                task.wait(30) -- PERFORMANCE: Sleep longer when no data to protect
-            end
-        end
-    end)
-end
-
--- Start the ESP protection scanner
-startESPProtectionScanner()
-
--- Expose protection functions
+-- Expose protection functions (no background scanner needed - ESP is protected at creation)
 _G.protectESP = protectESP
-_G.protectESPData = protectESPData
 _G.ESPProtectedInstances = ESPProtectedInstances
 
 -- ===== 2. KICK/BAN PREVENTION SYSTEM =====
--- Blocks attempts to kick or ban the player
 
 local kickBlocked = 0
 local banBlocked = 0
-_G.AntiBreakLegsEnabled = _G.AntiBreakLegsEnabled or false -- shared with UI toggle
+_G.AntiBreakLegsEnabled = _G.AntiBreakLegsEnabled or false
 
 -- Block Player:Kick()
 local oldKick = nil
@@ -589,7 +368,6 @@ pcall(function()
     if hookfunction and newcclosure then
         oldKick = hookfunction(Players.LocalPlayer.Kick, newcclosure(function(self, reason)
             kickBlocked = kickBlocked + 1
-            if ANTIBAN_DEBUG then warn("[ANTI-BAN] Blocked kick attempt #" .. kickBlocked .. ": " .. tostring(reason or "No reason")) end
             return nil -- Block the kick
         end))
     end
@@ -673,7 +451,6 @@ if hookmetamethod and checkcaller and getnamecallmethod then
             -- Block Kick method
             if method == "Kick" and self == LocalPlayer then
                 kickBlocked = kickBlocked + 1
-                if ANTIBAN_DEBUG then warn("[ANTI-BAN] Blocked Kick via namecall #" .. kickBlocked) end
                 return nil
             end
             
@@ -686,21 +463,18 @@ if hookmetamethod and checkcaller and getnamecallmethod then
 
                 -- Block fall/broken-legs self-damage when enabled
                 if _G.AntiBreakLegsEnabled and remoteName == "ForceSelfDamage" then
-                    if ANTIBAN_DEBUG then warn("[ANTI-BAN] Blocked ForceSelfDamage while Anti Break Legs enabled") end
                     return nil
                 end
                 
                 -- Block known anti-cheat/admin log remotes (blocks OUTGOING too)
                 if blockedRemotes[remoteName] then
                     banBlocked = banBlocked + 1
-                    if ANTIBAN_DEBUG then warn("[ANTI-BAN] Blocked suspicious remote: " .. remoteName) end
                     return nil
                 end
                 
                 -- Pattern-based admin log detection
                 if isAdminLogRemote(remoteName) then
                     adminLogBlockCount = adminLogBlockCount + 1
-                    if ANTIBAN_DEBUG then warn("[ANTI-BAN] Blocked admin log remote: " .. remoteName .. " (#" .. adminLogBlockCount .. ")") end
                     return nil
                 end
                 
@@ -708,7 +482,6 @@ if hookmetamethod and checkcaller and getnamecallmethod then
                 if not checkcaller() then
                     local isSuspicious, keyword = containsSuspiciousArg(args)
                     if isSuspicious then
-                        if ANTIBAN_DEBUG then warn("[ANTI-BAN] Blocked remote with suspicious arg: " .. keyword) end
                         return nil
                     end
                 end
@@ -733,39 +506,10 @@ if hookmetamethod and checkcaller and getnamecallmethod then
 end
 
 -- ===== 4. METATABLE INDEX HOOK (PROPERTY CLOAKING) =====
--- Hides modifications from anti-cheat property checks
+-- Minimal hook - only hides GUI names from anti-cheat scans
 
 local oldIndex
 local indexInHook = false
-
--- Properties to emulate/hide
--- Use weak keys so destroyed instances get garbage collected
-local emulatedProperties = {
-    -- Character properties to hide
-    WalkSpeed = setmetatable({}, { __mode = "k" }), -- [humanoid] = originalValue
-    JumpPower = setmetatable({}, { __mode = "k" }),
-    JumpHeight = setmetatable({}, { __mode = "k" }),
-    HipHeight = setmetatable({}, { __mode = "k" }),
-    -- Part properties
-    Transparency = setmetatable({}, { __mode = "k" }),
-    CanCollide = setmetatable({}, { __mode = "k" }),
-    Size = setmetatable({}, { __mode = "k" }),
-    Anchored = setmetatable({}, { __mode = "k" }),
-}
-
--- Function to register a property for emulation (hide from anti-cheat)
-local function emulateProperty(instance, property, fakeValue)
-    if emulatedProperties[property] then
-        emulatedProperties[property][instance] = fakeValue
-    end
-end
-
-local function getEmulatedValue(instance, property)
-    if emulatedProperties[property] and emulatedProperties[property][instance] ~= nil then
-        return true, emulatedProperties[property][instance]
-    end
-    return false, nil
-end
 
 if hookmetamethod and checkcaller then
     pcall(function()
@@ -776,8 +520,6 @@ if hookmetamethod and checkcaller then
             
             if not checkcaller() then
                 indexInHook = true
-                
-                -- Hide our GUI
                 if key == "Name" then
                     local success, name = pcall(function()
                         return oldIndex(self, "Name")
@@ -787,14 +529,6 @@ if hookmetamethod and checkcaller then
                         return "RobloxGui"
                     end
                 end
-                
-                -- Return emulated property values to fool anti-cheat
-                local hasEmulated, emulatedValue = getEmulatedValue(self, key)
-                if hasEmulated then
-                    indexInHook = false
-                    return emulatedValue
-                end
-                
                 indexInHook = false
             end
             
@@ -821,8 +555,6 @@ if hookmetamethod and checkcaller then
             return oldIndex(self, key)
         end)
     end)
-else
-    if ANTIBAN_DEBUG then warn("[ANTI-BAN] hookmetamethod not available, skipping metatable cloaking") end
 end
 
 -- ===== 5. NEWINDEX HOOK (DETECT PROPERTY CHANGES) =====
@@ -888,13 +620,11 @@ if hookmetamethod and checkcaller then
                 if char and self:IsDescendantOf(char) then
                     -- Block attempts to set WalkSpeed to 0 (anti-cheat punishment)
                     if key == "WalkSpeed" and value == 0 then
-                        if ANTIBAN_DEBUG then warn("[ANTI-BAN] Blocked WalkSpeed = 0 attempt") end
                         newIndexInHook = false
                         return nil
                     end
                     -- Block attempts to anchor our character
                     if key == "Anchored" and value == true then
-                        if ANTIBAN_DEBUG then warn("[ANTI-BAN] Blocked Anchored = true attempt") end
                         newIndexInHook = false
                         return nil
                     end
@@ -927,521 +657,107 @@ if hookmetamethod and checkcaller then
     end)
 end
 
--- ===== 6. ADVANCED PROPERTY EMULATOR (IF SUPPORTED) =====
--- Uses AddGetHook/AddSetHook/AddPropertyEmulator if available
+-- ===== 6-8 REMOVED: Property emulators, connection cleaner, remote spy blocker =====
+-- These were dead code (never populated), broken (debug.getinfo unavailable), 
+-- and no-op (pass-through hooks) respectively. Removed for performance.
 
-if ExecutorCapabilities.hasAddPropertyEmulator then
-    pcall(function()
-        -- Emulate WalkSpeed to always return 16 to anti-cheat
-        AddPropertyEmulator("Humanoid", "WalkSpeed", function(self)
-            -- Return the "normal" value to fool anti-cheat
-            return 16
-        end)
-        
-        -- Emulate JumpPower
-        AddPropertyEmulator("Humanoid", "JumpPower", function(self)
-            return 50
-        end)
-        
-        if ANTIBAN_DEBUG then warn("[ANTI-BAN] Property Emulator active for Humanoid") end
-    end)
-end
-
-if ExecutorCapabilities.hasAddGetHook then
-    pcall(function()
-        -- Hook property reads
-        AddGetHook("Humanoid", "WalkSpeed", function(self, originalValue)
-            if not checkcaller() then
-                return 16 -- Return normal value to anti-cheat
-            end
-            return originalValue
-        end)
-        
-        if ANTIBAN_DEBUG then warn("[ANTI-BAN] Get Hook active for Humanoid.WalkSpeed") end
-    end)
-end
-
-if ExecutorCapabilities.hasAddSetHook then
-    pcall(function()
-        -- Hook property writes
-        AddSetHook("Humanoid", "WalkSpeed", function(self, value)
-            -- Allow our script to set, but log anti-cheat attempts
-            if not checkcaller() and value == 0 then
-                if ANTIBAN_DEBUG then warn("[ANTI-BAN] Blocked external WalkSpeed = 0") end
-                return false -- Block the set
-            end
-            return true -- Allow the set
-        end)
-        
-        if ANTIBAN_DEBUG then warn("[ANTI-BAN] Set Hook active for Humanoid.WalkSpeed") end
-    end)
-end
-
--- ===== 7. CONNECTION CLEANER (DISABLE ANTI-CHEAT LISTENERS) =====
--- Removes anti-cheat event connections
-
--- Cache for already checked/disabled connections (weak keys for GC)
-local checkedConnections = setmetatable({}, { __mode = "k" })
-local disabledConnections = setmetatable({}, { __mode = "k" })
-
--- Precompiled patterns for faster matching
-local suspiciousPatterns = { "anticheat", "security", "detection", "cheat", "exploit" }
-
-local function isSuspiciousSource(src)
-    if not src or src == "" then return false end
-    local lower = src:lower()
-    for _, pattern in ipairs(suspiciousPatterns) do
-        if lower:find(pattern, 1, true) then return true end
-    end
-    return false
-end
-
-local function cleanAntiCheatConnections()
-    if not getconnections then return end
-    
-    local cleaned = 0
-    local MAX_PER_CYCLE = 50 -- Limit processing per cycle for performance
-    local processed = 0
-    
-    local function processConnections(signal)
-        if processed >= MAX_PER_CYCLE then return end
-        local ok, connections = pcall(getconnections, signal)
-        if not ok or not connections then return end
-        
-        for _, conn in pairs(connections) do
-            if processed >= MAX_PER_CYCLE then break end
-            
-            -- Skip already checked connections (use if-then structure instead of continue)
-            if not checkedConnections[conn] and not disabledConnections[conn] then
-                checkedConnections[conn] = true
-                processed = processed + 1
-                
-                pcall(function()
-                    if conn.Function and debug.getinfo then
-                        local info = debug.getinfo(conn.Function)
-                        if info and isSuspiciousSource(info.source) then
-                            conn:Disable()
-                            disabledConnections[conn] = true
-                            cleaned = cleaned + 1
-                        end
-                    end
-                end)
-            end
-        end
-    end
-    
-    pcall(function() processConnections(RunService.RenderStepped) end)
-    pcall(function() processConnections(RunService.Heartbeat) end)
-    pcall(function() processConnections(RunService.Stepped) end)
-    
-    if cleaned > 0 and ANTIBAN_DEBUG then
-        warn("[ANTI-BAN] Cleaned " .. cleaned .. " suspicious connections")
-    end
-    
-    return cleaned
-end
-
--- Run connection cleaner periodically with adaptive scheduling
--- PERFORMANCE: Reduced frequency and smart GC
-local connectionCleanerCycles = 0
-local lastGCTime = 0
-local GC_INTERVAL = 300 -- Run full GC every 5 minutes max
-local connectionCleanerRuns = 0
-local MAX_CLEANER_RUNS = 10 -- PERFORMANCE: Stop after 10 runs (anti-cheat connections don't change)
-
-task.defer(function()
-    task.wait(10) -- Initial delay to let game load
-    local initialCleaned = cleanAntiCheatConnections() -- Run once at start
-    connectionCleanerRuns = 1
-    
-    while connectionCleanerRuns < MAX_CLEANER_RUNS do
-        -- Adaptive wait: if we cleaned something last time, check sooner
-        local waitTime = (connectionCleanerCycles > 0 and connectionCleanerCycles < 3) and 60 or 180
-        task.wait(waitTime)
-        
-        local cleaned = cleanAntiCheatConnections()
-        connectionCleanerCycles = cleaned > 0 and (connectionCleanerCycles + 1) or 0
-        connectionCleanerRuns = connectionCleanerRuns + 1
-        
-        -- Smart garbage collection: only run when beneficial
-        local now = os.clock()
-        if now - lastGCTime > GC_INTERVAL then
-            pcall(function()
-                collectgarbage("step", 100) -- Incremental GC (reduced from 500 to avoid micro-stutter)
-            end)
-            lastGCTime = now
-        end
-    end
-    -- PERFORMANCE: After max runs, connection cleaner stops (anti-cheat connections are static)
-end)
-
--- ===== 8. REMOTE SPY BLOCKER =====
--- Blocks anti-cheat from spying on our remote calls
-
-local originalFireServer
-local originalInvokeServer
-
-pcall(function()
-    if hookfunction and newcclosure then
-        local RemoteEvent = Instance.new("RemoteEvent")
-        local RemoteFunction = Instance.new("RemoteFunction")
-        
-        originalFireServer = hookfunction(RemoteEvent.FireServer, newcclosure(function(self, ...)
-            -- Our calls go through, but we can filter here
-            return originalFireServer(self, ...)
-        end))
-        
-        originalInvokeServer = hookfunction(RemoteFunction.InvokeServer, newcclosure(function(self, ...)
-            return originalInvokeServer(self, ...)
-        end))
-        
-        RemoteEvent:Destroy()
-        RemoteFunction:Destroy()
-    end
-end)
-
--- ===== 9. SAFE REMOTE WRAPPERS + ADMIN LOG BYPASS =====
--- Protected remote calls that bypass monitoring and admin logs
--- OPTIMIZED: Reduced overhead, cached random, smarter delay logic
+-- ===== 9. SAFE REMOTE WRAPPERS =====
+-- Lightweight protected remote calls with rate limiting
 
 do
-    local protectedRemotes = setmetatable({}, { __mode = "k" })
-    local CALL_RANDOMIZE = true -- Add micro-random delays to avoid pattern detection
-    local CALL_MIN_DELAY = 0.005 -- 5ms minimum (very fast)
-    local CALL_MAX_DELAY = 0.015 -- 15ms maximum (still fast)
-    
-    -- OPTIMIZATION: Pre-calculate delay range to avoid repeated math
-    local DELAY_RANGE = CALL_MAX_DELAY - CALL_MIN_DELAY
-    
-    -- OPTIMIZATION: Rate limiting to prevent spam detection
     local lastCallTime = 0
     local callCount = 0
-    local RATE_WINDOW = 1 -- 1 second window
-    local MAX_CALLS_PER_SECOND = 60 -- Max calls per second
+    local MAX_CALLS_PER_SECOND = 60
     
-    -- OPTIMIZATION: Inline random delay calculation
-    local mathRandom = math.random
-    
-    local function getSmartDelay()
-        if not CALL_RANDOMIZE then return 0 end
-        return CALL_MIN_DELAY + (mathRandom() * DELAY_RANGE)
-    end
-    
-    -- OPTIMIZATION: Check rate limit before calling
     local function checkRateLimit()
         local now = os.clock()
-        if now - lastCallTime > RATE_WINDOW then
+        if now - lastCallTime > 1 then
             lastCallTime = now
             callCount = 1
             return true
         end
         callCount = callCount + 1
-        if callCount > MAX_CALLS_PER_SECOND then
-            return false -- Rate limited
-        end
-        return true
+        return callCount <= MAX_CALLS_PER_SECOND
     end
     
-    -- Completely hidden remote call - uses hooked path if available
-    -- OPTIMIZED: Reduced pcall overhead, smarter delay
     local function safeFireServer(remote, ...)
         if not remote then return end
-        
-        -- Rate limit check (prevents spam detection)
         if not checkRateLimit() then
-            task.wait(0.02) -- Brief pause if rate limited
+            task.wait(0.02)
         end
-        
-        -- Micro-random delay - only wait if delay > 0
-        local delay = getSmartDelay()
-        if delay > 0.001 then
-            task.wait(delay)
-        end
-        
-        -- Use hooked FireServer (goes through our namecall hook, appears as normal game traffic)
-        -- OPTIMIZATION: Avoid creating args table when possible
-        if originalFireServer then
-            local ok, result = pcall(originalFireServer, remote, ...)
-            return result
-        else
-            local ok, result = pcall(remote.FireServer, remote, ...)
-            return result
-        end
+        local ok, result = pcall(remote.FireServer, remote, ...)
+        return result
     end
     
     local function safeInvokeServer(remote, ...)
         if not remote then return nil end
-        
-        -- Rate limit check
         if not checkRateLimit() then
             task.wait(0.02)
         end
-        
-        local delay = getSmartDelay()
-        if delay > 0.001 then
-            task.wait(delay)
-        end
-        
-        if originalInvokeServer then
-            local ok, result = pcall(originalInvokeServer, remote, ...)
-            return ok and result or nil
-        else
-            local ok, result = pcall(remote.InvokeServer, remote, ...)
-            return ok and result or nil
-        end
+        local ok, result = pcall(remote.InvokeServer, remote, ...)
+        return ok and result or nil
     end
     
-    local function markRemoteProtected(remote)
-        if remote then
-            protectedRemotes[remote] = true
-        end
-    end
-    
-    -- Update delay range if settings change
-    local function updateDelaySettings(minDelay, maxDelay)
-        CALL_MIN_DELAY = minDelay or CALL_MIN_DELAY
-        CALL_MAX_DELAY = maxDelay or CALL_MAX_DELAY
-        DELAY_RANGE = CALL_MAX_DELAY - CALL_MIN_DELAY
-    end
-    
-    -- Expose settings for advanced users
     _G.SafeFireServer = safeFireServer
     _G.SafeInvokeServer = safeInvokeServer
-    _G.MarkRemoteProtected = markRemoteProtected
     _G.RemoteProtectionEnabled = true
-    _G.AdminLogBypass = {
-        enabled = true,
-        randomizeDelay = CALL_RANDOMIZE,
-        setRandomize = function(v) CALL_RANDOMIZE = v end,
-        setDelayRange = updateDelaySettings,
-        getCallStats = function() return { callCount = callCount, lastCallTime = lastCallTime } end,
-    }
-    _G.EmulateProperty = emulateProperty -- Expose for other parts of script
 end
 
--- ===== 10. ADMIN LOG INTERCEPT (Advanced) =====
--- Attempts to intercept admin panel remote calls
-
-do
-    local adminRemoteNames = {
-        "AdminLog", "LogAction", "AdminPanel", "ModeratorLog", 
-        "ServerLog", "ActionLog", "PlayerLog", "ReportLog",
-        "BanLog", "KickLog", "AdminAction", "ModAction",
-        "LogEvent", "EventLog", "SecurityLog", "CheatLog",
-        "AntiCheat", "Detection", "Report", "Flag"
-    }
-    
-    -- Check if a remote might be an admin logging remote
-    local function isAdminRemote(remoteName)
-        if not remoteName then return false end
-        local lower = string.lower(remoteName)
-        for _, name in ipairs(adminRemoteNames) do
-            if lower:find(string.lower(name)) then
-                return true
-            end
-        end
-        return false
-    end
-    
-    -- Block admin remotes from receiving our data (if we have namecall hook)
-    if oldNamecall and not namecallInHook then
-        -- Already handled in section 3, but we add extra check
-    end
-    
-    -- Scan for and attempt to disable admin logging remotes
-    local function scanAndDisableAdminRemotes()
-        local count = 0
-        pcall(function()
-            local rs = game:GetService("ReplicatedStorage")
-            for _, child in ipairs(rs:GetDescendants()) do
-                if (child:IsA("RemoteEvent") or child:IsA("RemoteFunction")) then
-                    if isAdminRemote(child.Name) then
-                        -- Mark as protected so our hooks block calls to it
-                        if _G.MarkRemoteProtected then
-                            _G.MarkRemoteProtected(child)
-                        end
-                        count = count + 1
-                    end
-                end
-            end
-        end)
-        return count
-    end
-    
-    -- Run scan once at start, then only occasionally (not infinite loop)
-    task.defer(function()
-        task.wait(2)
-        local found = scanAndDisableAdminRemotes()
-        if ANTIBAN_DEBUG and found > 0 then
-            warn("[ANTI-BAN] Found and protected " .. found .. " potential admin remotes")
-        end
-        
-        -- PERFORMANCE: Only rescan a few times, not forever
-        for _ = 1, 3 do
-            task.wait(60) -- Wait 1 minute between rescans
-            scanAndDisableAdminRemotes()
-        end
-        -- After 3 rescans, stop (game remotes don't change)
-    end)
-end
-
--- ===== 11. ANTI-DETECTION STATUS =====
+-- ===== 10. ANTI-DETECTION STATUS =====
 _G.AntiBan = true
-_G.AntiBanVersion = "2.3"
-_G.ExecutorCapabilities = ExecutorCapabilities
+_G.AntiBanVersion = "3.0"
 _G.AntiBanStats = {
     getKickBlocked = function() return kickBlocked end,
     getBanBlocked = function() return banBlocked end,
     getAdminLogBlocked = function() return adminLogBlockCount end,
 }
 
--- Section 11.5 REMOVED: Memory spoofing was causing "unable to cast value to object" errors
--- The getrenv() hooks for gcinfo and collectgarbage can break on some executors
+-- ===== 11. LIGHTWEIGHT BYPASS (one-shot, no loops) =====
+-- Block Kick/BreakJoints on current char, disable known anti-cheat event connections once
 
--- Section 11.6 REMOVED: Stealth reload helper was causing issues with SetAttribute calls
-
--- ===== 12. ENHANCED BYPASS SYSTEM (Integrated from bypass clean.lua) =====
--- Advanced property spoofing and connection disabling
-
-pcall(function()
-    local Character = LocalPlayer.Character
-    if not Character then return end
-    local Humanoid = Character:FindFirstChildOfClass("Humanoid")
-    if not Humanoid then return end
-    local HumanoidRootPart = Character:FindFirstChild("HumanoidRootPart")
-    
-    -- Store original values for spoofing
-    local OriginalWalkSpeed = Humanoid.WalkSpeed
-    local OriginalJumpPower = Humanoid.JumpPower
-    local OriginalHealth = Humanoid.Health
-    local OriginalMaxHealth = Humanoid.MaxHealth
-    local OriginalHipHeight = Humanoid.HipHeight
-    local OriginalGravity = workspace.Gravity
-    local OriginalVelocity = HumanoidRootPart and HumanoidRootPart.Velocity or Vector3.new(0,0,0)
-    local OriginalSize = HumanoidRootPart and HumanoidRootPart.Size or Vector3.new(2,2,1)
-    
-    -- Advanced hooks using AddSetHook/AddPropertyEmulator if available
-    -- NOTE: WalkSpeed NOT hooked - allows game to slow player during reload
-    -- NOTE: Health NOT hooked - allows healing from surgeon kit
-    if ExecutorCapabilities.hasAddSetHook then
-        -- Only hook properties that anti-cheat checks but game doesn't need to modify
-        pcall(function() Humanoid:AddSetHook("MaxSlopeAngle") end)
-        -- Don't hook CFrame/Velocity - can break game physics
-    end
-    
-    -- Property emulators - only for properties that don't need to change for gameplay
-    -- NOTE: Health/WalkSpeed NOT emulated - need real values for gameplay mechanics
-    if ExecutorCapabilities.hasAddPropertyEmulator then
-        pcall(function() Humanoid:AddPropertyEmulator("HipHeight") end)
-    end
-    
-    -- Global Get Hooks - minimal set to avoid breaking game mechanics
-    -- NOTE: Most hooks removed - they were breaking reload slowdown and healing
-    if ExecutorCapabilities.hasAddGetHook then
-        pcall(function() game:AddGlobalGetHook("HipHeight", OriginalHipHeight) end)
-    end
-    
-    -- Global Set Hooks - minimal set, removed WalkSpeed/Health/JumpPower to allow game mechanics
+local function applyCharBypass(char)
+    if not char then return end
     pcall(function()
-        if game.AddGlobalSetHook then
-            game:AddGlobalSetHook("HipHeight")
-            game:AddGlobalSetHook("MaxSlopeAngle")
+        if char.AddCallHook then
+            char:AddCallHook("BreakJoints", function() return end)
         end
     end)
-    
-    -- Block Kick calls
     pcall(function()
-        if game.AddGlobalCallHook then
-            game:AddGlobalCallHook("Kick", function() end)
-        end
-        if Character and Character.AddCallHook then
-            Character:AddCallHook("BreakJoints", function() return end)
-        end
         if LocalPlayer.AddCallHook then
             LocalPlayer:AddCallHook("Kick", function() return task.wait(9e9) end)
         end
     end)
-    
-    -- Disable anti-cheat event connections
+    -- One-shot: disable logging service connections
     pcall(function()
         if getconnections then
-            -- Disable ItemChanged connections
-            for _, conn in next, getconnections(game.ItemChanged) do
+            for _, conn in next, getconnections(game:GetService("LogService").MessageOut) do
                 pcall(function() conn:Disable() end)
             end
-            -- NOTE: NOT disabling Humanoid.Changed - it blocks healing from surgeon kit
-            -- Disable LogService.MessageOut connections
-            pcall(function()
-                for _, conn in next, getconnections(game:GetService("LogService").MessageOut) do
-                    conn:Disable()
-                end
-            end)
-            -- Disable ScriptContext.Error connections
-            pcall(function()
-                for _, conn in next, getconnections(game:GetService("ScriptContext").Error) do
-                    conn:Disable()
-                end
-            end)
+            for _, conn in next, getconnections(game:GetService("ScriptContext").Error) do
+                pcall(function() conn:Disable() end)
+            end
         end
     end)
-    
-    -- Set HttpService timeout (helps with anti-cheat that uses HTTP)
-    pcall(function()
-        game:GetService("HttpService"):SetTimeout(0.05)
-    end)
-    
-    if ANTIBAN_DEBUG then
-        warn("[ANTI-BAN] Enhanced bypass system initialized")
-    end
-end)
+end
 
--- Re-apply on respawn
+applyCharBypass(LocalPlayer.Character)
 LocalPlayer.CharacterAdded:Connect(function(newChar)
     task.wait(0.5)
-    pcall(function()
-        local Humanoid = newChar:WaitForChild("Humanoid", 5)
-        local HumanoidRootPart = newChar:WaitForChild("HumanoidRootPart", 5)
-        if not Humanoid or not HumanoidRootPart then return end
-        
-        -- NOTE: Not hooking WalkSpeed/JumpPower - allows reload slowdown and game mechanics
-        if ExecutorCapabilities.hasAddSetHook then
-            pcall(function() Humanoid:AddSetHook("MaxSlopeAngle") end)
-        end
-        
-        -- NOTE: Not emulating WalkSpeed/JumpPower - need real values
-        if ExecutorCapabilities.hasAddPropertyEmulator then
-            pcall(function() Humanoid:AddPropertyEmulator("HipHeight") end)
-        end
-        
-        -- NOTE: NOT disabling Humanoid.Changed - it blocks healing from surgeon kit
-        
-        -- Block BreakJoints
-        if newChar.AddCallHook then
-            pcall(function() newChar:AddCallHook("BreakJoints", function() return end) end)
-        end
-    end)
+    applyCharBypass(newChar)
 end)
 
--- Section 13 REMOVED: Full bypass clean integration was causing FPS drops and breaking game mechanics
--- The metatable hooks intercept every single property access causing massive overhead
--- Sections 1-12 already provide sufficient protection without the performance cost
-
 end
--- ===== END ADVANCED BYPASS ANTI-CHEAT =====
+-- ===== END STREAMLINED ANTI-CHEAT BYPASS =====
 
 -- ===== PERFORMANCE OPTIMIZATION SYSTEM =====
 -- Tracks feature activity and disables dormant features
--- Includes Low-End Device Mode for mobile/weak devices
 do
-    local DORMANT_TIMEOUT = 60 -- seconds before a feature goes dormant
-    local FRAME_SKIP_LIGHT = 2 -- skip every N frames for light features
-    local FRAME_SKIP_HEAVY = 5 -- skip every N frames for heavy features (ESP, etc.)
+    local DORMANT_TIMEOUT = 60
+    local FRAME_SKIP_LIGHT = 2
+    local FRAME_SKIP_HEAVY = 5
     
-    -- LOW-END MODE ALWAYS ENABLED (hardcoded for performance)
-    local isLowEndDevice = false -- Always enabled for better performance
-    _G.LowEndMode = false -- Compatibility flag: low-end mode is always on
+    _G.LowEndMode = false
     
-    -- Feature activity tracking
     _G.KatchiPerf = {
         -- Timestamps of last activity for each feature
         lastActivity = {},
@@ -1534,33 +850,7 @@ do
         BOMBER_VIS = "BomberVis",
     }
     
-    -- ===== PERIODIC GARBAGE COLLECTION =====
-    -- PERFORMANCE: Run garbage collection periodically to prevent memory buildup
-    -- Uses adaptive timing based on memory usage
-    local lastGCMemory = 0
-    local gcRunCount = 0
-    task.defer(function()
-        task.wait(45) -- Initial delay (stagger from other loops)
-        while true do
-            -- Check memory before deciding to GC
-            local currentMemory = 0
-            pcall(function() currentMemory = collectgarbage("count") end)
-            
-            -- Only run GC if memory increased significantly (>5MB since last check)
-            local memoryDelta = currentMemory - lastGCMemory
-            if memoryDelta > 5000 or gcRunCount < 3 then
-                pcall(function()
-                    collectgarbage("step", 100) -- Reduced from 200 to avoid micro-stutter
-                end)
-                lastGCMemory = currentMemory
-                gcRunCount = gcRunCount + 1
-            end
-            
-            -- PERFORMANCE: Adaptive wait - longer if memory stable, shorter if growing
-            local waitTime = memoryDelta > 2000 and 45 or 90
-            task.wait(waitTime)
-        end
-    end)
+    -- Periodic GC removed: Roblox handles GC natively; forced steps cause micro-stutters
     
 end
 -- ===== END PERFORMANCE OPTIMIZATION SYSTEM =====
@@ -1781,7 +1071,7 @@ end
             end
             TweenService:Create(bg, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
             TweenService:Create(blur, TweenInfo.new(0.5), {Size = 0}):Play()
-            wait(0.6)
+            task.wait(0.6)
             screenGui:Destroy()
             blur:Destroy()
         end
@@ -1807,10 +1097,10 @@ end
             tweenIn:Play()
 
             table.insert(letters, label)
-            wait(0.25)
+            task.wait(0.25)
         end
 
-        wait(2)
+        task.wait(2)
         tweenOutAndDestroy()
     end
 
@@ -4227,21 +3517,23 @@ local function shouldSkipBomberForSafety(model, zombieType)
 end
 
 -- Helper: Create/update bomber radius visualization
+-- PERFORMANCE FIX: Pre-allocate seenBombers table to avoid GC churn every 0.5s
+local _seenBombersBuf = {}
 local function updateBomberRadiusVisuals()
     if not BOMBER_VISUALIZE_RADIUS then return end
     
     local zombiesFolder = Workspace:FindFirstChild("Zombies")
     if not zombiesFolder then return end
     
-    -- Track which bombers we've seen this frame
-    local seenBombers = {}
+    -- Reuse buffer instead of creating new table every call
+    for k in pairs(_seenBombersBuf) do _seenBombersBuf[k] = nil end
     
     -- PERFORMANCE FIX: Use GetChildren on Agent/Slim specifically instead of GetDescendants on entire folder
     local function scanFolder(folder)
         if not folder then return end
         for _, model in ipairs(folder:GetChildren()) do
             if model:IsA("Model") and GetZombieTypeFromModel(model) == "Bomber" then
-                seenBombers[model] = true
+                _seenBombersBuf[model] = true
             
                 local bomberPart = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
                 if bomberPart then
@@ -4322,7 +3614,7 @@ local function updateBomberRadiusVisuals()
     
     -- Clean up visuals for bombers that no longer exist
     for model, visual in pairs(BomberRadiusVisuals) do
-        if not seenBombers[model] or not model.Parent then
+        if not _seenBombersBuf[model] or not model.Parent then
             pcall(function() visual:Destroy() end)
             BomberRadiusVisuals[model] = nil
         end
@@ -4659,7 +3951,6 @@ local function reloadNockGun(tool)
     
     local shots = getShotsLoadedForTool(tool)
     if shots >= 7 then
-        print("Nock Gun already full: ShotsLoaded =", shots)
         reloadInProgress[tool] = nil
         return
     end
@@ -4680,7 +3971,6 @@ local function reloadNockGun(tool)
     while attempts < maxAttempts do
         local currentShots = getShotsLoadedForTool(tool)
         if currentShots >= 7 then
-            print("Nock Gun reload complete: ShotsLoaded =", currentShots)
             -- Unequip and re-equip when full
             pcall(function() tool.Parent = LocalPlayer.Backpack end)
             task.wait(0.02)
@@ -4705,7 +3995,6 @@ local function reloadDoubleBarrelPistol(tool)
     
     local shots = getShotsLoadedForTool(tool)
     if shots ~= 0 then
-        print(tool.Name .. " has shots remaining: ShotsLoaded =", shots)
         reloadInProgress[tool] = nil
         return
     end
@@ -4721,7 +4010,6 @@ local function reloadDoubleBarrelPistol(tool)
     while attempts < maxAttempts do
         local currentShots = getShotsLoadedForTool(tool)
         if currentShots >= 2 then
-            print(tool.Name .. " reload complete: ShotsLoaded =", currentShots)
             -- Unequip and re-equip when full
             reloadInProgress[tool] = nil  -- Clear flag before unequip/reequip
             pcall(function() tool.Parent = LocalPlayer.Backpack end)
@@ -4748,7 +4036,6 @@ local function reloadHorseArtilleryPistol(tool)
     
     local shots = getShotsLoadedForTool(tool)
     if shots ~= 0 then
-        print(tool.Name .. " has shots remaining: ShotsLoaded =", shots)
         reloadInProgress[tool] = nil
         return
     end
@@ -4840,10 +4127,6 @@ local function tryReloadTool(tool)
     if not isGun(tool) then return end
     local shots = getShotsLoadedForTool(tool)
     
-    if tool.Name == "Horse Artillery Pistol" then
-        print("tryReloadTool: Checking Horse Artillery Pistol, shots =", shots)
-    end
-    
     -- Determine if reload is needed based on gun type
     local shouldReload = false
     if tool.Name == "Nock Gun" then
@@ -4854,14 +4137,7 @@ local function tryReloadTool(tool)
         shouldReload = shots == 0  -- Normal guns reload only when empty
     end
     
-    if tool.Name == "Horse Artillery Pistol" then
-        print("tryReloadTool: Horse Artillery Pistol shouldReload =", shouldReload)
-    end
-    
     if shouldReload then
-        if tool.Name == "Horse Artillery Pistol" then
-            print("tryReloadTool: Spawning reloadHorseArtilleryPistol")
-        end
         -- Check gun name and fire appropriate reload sequence
         if tool.Name == "Nock Gun" then
             task.spawn(reloadNockGun, tool)
@@ -5099,14 +4375,7 @@ local function watchShotsForTool(tool)
                 shouldReload = prevVal == 0
             end
             
-            if tool.Name == "Horse Artillery Pistol" then
-                print("watchShotsForTool INITIAL: Horse Artillery Pistol detected, prevVal =", prevVal, ", shouldReload =", shouldReload, ", reloadRemote =", reloadRemote ~= nil)
-            end
-            
             if shouldReload and reloadRemote then
-                if tool.Name == "Horse Artillery Pistol" then
-                    print("watchShotsForTool INITIAL: Spawning reloadHorseArtilleryPistol")
-                end
                 if tool.Name == "Nock Gun" then
                     task.spawn(reloadNockGun, tool)
                 elseif tool.Name == "Double Barrel Pistol" then
@@ -5124,7 +4393,9 @@ local function watchShotsForTool(tool)
         conn = shotsObj.Changed:Connect(function()
             local v = shotsObj.Value
             if AUTO_RELOAD_ENABLED and type(v) == "number" and type(prevVal) == "number" and v > prevVal then
-                for i = prevVal + 1, v do task.spawn(notifyReload) end
+                -- PERFORMANCE FIX: Cap notification spawns to prevent burst if value jumps significantly
+                local notifyCount = math.min(v - prevVal, 3)
+                for i = 1, notifyCount do task.spawn(notifyReload) end
             end
             
             -- Check if reload is needed based on gun type
@@ -7416,7 +6687,6 @@ if GunTab then
     })
 end
 end -- End Hand Mortar Feature scope
-print("Skibidi")
 -- End hand mortar feature
 
 -- PERFORMANCE FIX: Mark Gun Tab initialization as complete to enable notifications
@@ -8036,10 +7306,10 @@ end
             for k in pairs(ESPPendingRemoval) do ESPPendingRemoval[k] = nil end
             -- Clear IdentifiedIgniters to free memory
             for k in pairs(IdentifiedIgniters) do IdentifiedIgniters[k] = nil end
-            -- Clear any remaining ESP data entries and reset to weak tables
+            -- Clear any remaining ESP data entries, DESTROYING visuals first to prevent memory leak
             for espType in pairs(ESPData) do
                 for zombie in pairs(ESPData[espType]) do
-                    ESPData[espType][zombie] = nil
+                    RemoveVisual(espType, zombie)
                 end
                 -- Reset to weak table to ensure GC works after clearing
                 ESPData[espType] = setmetatable({}, { __mode = "k" })
@@ -8374,11 +7644,7 @@ local KILLAURA_ANTICHEAT_BYPASS = true -- Enable anti-detection measures
 local KILLAURA_MIN_DELAY = 0.028-- Minimum delay between attacks (25ms - fast but safe)
 local KILLAURA_RANDOMIZE_DELAY = true -- Add random variation to timing
 local KILLAURA_MAX_ATTACKS_PER_SECOND = 30 -- Maximum attacks per second (faster than do.lua)
-local KILLAURA_ATTACK_COUNTER = 0 -- Track attacks this second
-local KILLAURA_LAST_SECOND = 0 -- Track which second we're in
-local KILLAURA_VALIDATE_DISTANCE = false -- Disabled for better range
-local KILLAURA_MAX_REALISTIC_RANGE = 30 -- Maximum melee range (studs)
-local KILLAURA_SWING_TO_HIT_DELAY = 0.018 -- Delay between Swing and HitZombie (18ms - minimal but present)
+local KILLAURA_SWING_TO_HIT_DELAY = 0.015 -- Delay between Swing and HitZombie (15ms - minimal)
 
 -- State variables (Global for keybind access)
 KillAuraEnabled = false
@@ -8475,28 +7741,25 @@ local function KillAura_distSq(a, b)
     return dx*dx + dy*dy + dz*dz
 end
 
--- Anti-detection: Check if we're within rate limits
+-- Anti-detection: Sliding-window rate limiter (smoother than per-second bucket)
+-- Instead of math.floor(os.clock()) which lets all 30 attacks fire in a burst
+-- at the start of each second, this spreads them evenly across the window.
+local KILLAURA_WINDOW_START = os.clock()
+local KILLAURA_WINDOW_COUNT = 0
+
 local function KillAura_canAttack()
     if not KILLAURA_ANTICHEAT_BYPASS then return true end
-    
-    local currentSecond = math.floor(os.clock())
-    if currentSecond ~= KILLAURA_LAST_SECOND then
-        KILLAURA_LAST_SECOND = currentSecond
-        KILLAURA_ATTACK_COUNTER = 0
+    local now = os.clock()
+    -- Slide the window: if >1s elapsed, reset
+    if now - KILLAURA_WINDOW_START >= 1 then
+        KILLAURA_WINDOW_START = now
+        KILLAURA_WINDOW_COUNT = 0
     end
-    
-    if KILLAURA_ATTACK_COUNTER >= KILLAURA_MAX_ATTACKS_PER_SECOND then
-        return false -- Rate limited
-    end
-    
-    return true
+    return KILLAURA_WINDOW_COUNT < KILLAURA_MAX_ATTACKS_PER_SECOND
 end
 
--- Anti-detection: Register an attack
 local function KillAura_registerAttack()
-    if KILLAURA_ANTICHEAT_BYPASS then
-        KILLAURA_ATTACK_COUNTER = KILLAURA_ATTACK_COUNTER + 1
-    end
+    KILLAURA_WINDOW_COUNT = KILLAURA_WINDOW_COUNT + 1
 end
 
 -- Anti-detection: Get randomized delay
@@ -8505,14 +7768,6 @@ local function KillAura_getRandomizedDelay(baseDelay)
     -- Add random variation based on slider value
     local variation = baseDelay * KillAuraRandomness
     return baseDelay + (math.random() * variation * 2 - variation)
-end
-
--- Anti-detection: Validate attack distance
-local function KillAura_isValidAttackDistance(hrpPos, targetPos)
-    if not KILLAURA_VALIDATE_DISTANCE then return true end
-    if not hrpPos or not targetPos then return false end
-    local dist = (hrpPos - targetPos).Magnitude
-    return dist <= KILLAURA_MAX_REALISTIC_RANGE
 end
 
 local function KillAura_fireSwing(remote)
@@ -8748,10 +8003,11 @@ local function KillAura_getZombieType(model)
 end
 
 -- Helper: Get random part from Cuirassier for attack targeting
+-- PERFORMANCE FIX: Use GetChildren() instead of GetDescendants() to avoid deep traversal every attack
 local function KillAura_getRandomCuirassierPart(model)
     if not (model and model:IsA("Model")) then return nil end
     local parts = {}
-    for _, child in ipairs(model:GetDescendants()) do
+    for _, child in ipairs(model:GetChildren()) do
         if child:IsA("BasePart") then
             table.insert(parts, child)
         end
@@ -8794,107 +8050,8 @@ local function KillAura_shouldSkipZombie(model)
     return false
 end
 
--- Kill aura logic - continuous attack, no cache
--- Legit mode helper: plays animations and smooth body rotation
-local function KillAura_performLegitAttack(hrp, meleeTool, primaryRemote, entry, isBayonet)
-    -- Anti-detection: Rate limit check
-    if not KillAura_canAttack() then return end
-    
-    local char = LocalPlayer.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    local attackPos = KillAura_getAttackPosition(entry.model, entry.head)
-    
-    -- Anti-detection: Distance validation
-    if hrp and not KillAura_isValidAttackDistance(hrp.Position, attackPos) then
-        return -- Skip attacks that would be detected as impossible
-    end
-    
-    -- Register this attack for rate limiting
-    KillAura_registerAttack()
-    
-    -- Mark remote as protected for anti-ban
-    if _G.MarkRemoteProtected then
-        _G.MarkRemoteProtected(primaryRemote)
-    end
-    
-    pcall(function()
-        -- Play swing animation if available
-        if hum then
-            local animFolder = meleeTool:FindFirstChild("Animations") or meleeTool:FindFirstChild("Anims")
-            local swingAnim = animFolder and (animFolder:FindFirstChild("Swing") or animFolder:FindFirstChild("Attack"))
-            if swingAnim and swingAnim:IsA("Animation") then
-                local track = hum:LoadAnimation(swingAnim)
-                track:Play()
-            end
-        end
-        
-        -- Smooth dynamic body rotation (human-like)
-        if hrp then
-            local targetPos = entry.head.Position
-            local lookCF = CFrame.new(hrp.Position, Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z))
-            local side = math.random() > 0.5 and 1 or -1
-            local angle = math.random(15, 30)
-            
-            task.spawn(function()
-                -- Flick Left/Right
-                for i = 0, 1, 0.25 do
-                    if hrp and hrp.Parent then
-                        hrp.CFrame = hrp.CFrame:Lerp(lookCF * CFrame.Angles(0, math.rad(angle * side), 0), i)
-                    end
-                    task.wait(0.01)
-                end
-                for i = 0, 1, 0.25 do
-                    if hrp and hrp.Parent then
-                        hrp.CFrame = hrp.CFrame:Lerp(lookCF * CFrame.Angles(0, math.rad(-angle * side), 0), i)
-                    end
-                    task.wait(0.01)
-                end
-                if hrp and hrp.Parent then hrp.CFrame = hrp.CFrame:Lerp(lookCF, 0.5) end
-            end)
-        end
-        
-        -- Axe specific logic
-        if meleeTool.Name == "Axe" and entry.model and entry.model.Parent and entry.head and entry.head.Parent then
-            _G.SafeFireServer(primaryRemote, "BraceBlock")
-            _G.SafeFireServer(primaryRemote, "StopBraceBlock")
-            _G.SafeFireServer(primaryRemote, "FeedbackStun", entry.model, entry.head.Position)
-        end
-        
-        -- Validate entry still exists before attacking
-        if not entry.model or not entry.model.Parent or not attackPos then return end
-        
-        -- Send attack commands
-        if isBayonet then
-            _G.SafeFireServer(primaryRemote, "ThrustBayonet")
-            task.wait(0.15) -- Delay for realism
-            if entry.model and entry.model.Parent then
-                _G.SafeFireServer(primaryRemote, "Bayonet_HitZombie", entry.model, attackPos, true)
-            end
-        else
-            _G.SafeFireServer(primaryRemote, "Swing", "Thrust")
-            task.wait(0.15) -- Delay for realism
-            if entry.model and entry.model.Parent then
-                _G.SafeFireServer(primaryRemote, "HitZombie", entry.model, attackPos, true, Vector3.new(0, 15, 0), "Head", Vector3.new(0, 1, 0))
-            end
-        end
-        
-        -- Play hit animation if available
-        if hum then
-            local animFolder = meleeTool:FindFirstChild("Animations") or meleeTool:FindFirstChild("Anims")
-            local hitAnim = animFolder and (animFolder:FindFirstChild("Hit") or animFolder:FindFirstChild("Impact"))
-            if hitAnim and hitAnim:IsA("Animation") then
-                local track = hum:LoadAnimation(hitAnim)
-                track:Play()
-            end
-        end
-    end)
-end
-
 -- Fast mode helper: fires remotes with SafeFireServer for anti-detection
 local function KillAura_performFastAttack(meleeTool, primaryRemote, entry, isBayonet, hrpPos)
-    -- Anti-detection: Rate limit check
-    if not KillAura_canAttack() then return end
-    
     -- Quick validation
     local model = entry.model
     local head = entry.head
@@ -8903,14 +8060,6 @@ local function KillAura_performFastAttack(meleeTool, primaryRemote, entry, isBay
     -- Get attack position
     local attackPos = head.Position
     if not attackPos then return end
-    
-    -- Register this attack for rate limiting
-    KillAura_registerAttack()
-    
-    -- Mark remote as protected for anti-ban
-    if _G.MarkRemoteProtected then
-        _G.MarkRemoteProtected(primaryRemote)
-    end
     
     -- Use SafeFireServer with realistic timing between actions
     -- PERF FIX: Wrapped in task.spawn so task.wait() does NOT stall the heartbeat thread
@@ -9030,10 +8179,12 @@ local function KillAura_performKillAura(hrp)
 
     local attackCount = math.min(maxTargets, targetCount)
     
-    -- Batch attack all targets (no delay between - each attack is task.spawned internally)
+    -- Batch attack all targets (rate-limited per target)
     for i = 1, attackCount do
+        if not KillAura_canAttack() then break end
         local entry = targets[i]
         if entry then
+            KillAura_registerAttack()
             KillAura_performFastAttack(meleeTool, primaryRemote, entry, isBayonet, hrpPos)
         end
     end
@@ -9306,18 +8457,8 @@ local function KillAura_performAutoHead(hrp)
         
         local attackPos = KillAura_getAttackPosition(model, head)
         
-        -- Anti-detection: Distance validation
-        if not KillAura_isValidAttackDistance(hrpPos, attackPos) then
-            continue -- Skip this target, try next
-        end
-        
         -- Register this attack for rate limiting
         KillAura_registerAttack()
-        
-        -- Mark remote as protected for anti-ban
-        if _G.MarkRemoteProtected then
-            _G.MarkRemoteProtected(primaryRemote)
-        end
         
         if isBayonet then
             pcall(function()
@@ -10525,15 +9666,20 @@ local function GetToolRemoteByName(toolName)
     return nil
 end
 
+-- PERFORMANCE FIX: Pre-allocated buffers to avoid GC pressure from table churn
+local _targetZombiesBuf = {}
+local _targetZombiesBufLen = 0
+
 local function CollectZombiesForTargeting()
     local zombiesFolder = Workspace:FindFirstChild("Zombies")
-    if not zombiesFolder then return {} end
-    local list = {}
+    if not zombiesFolder then return _targetZombiesBuf, 0 end
+    _targetZombiesBufLen = 0
     local function collect(folder)
         if not folder then return end
         for _, z in ipairs(folder:GetChildren()) do
             if z and z:IsA("Model") then
-                table.insert(list, z)
+                _targetZombiesBufLen = _targetZombiesBufLen + 1
+                _targetZombiesBuf[_targetZombiesBufLen] = z
             end
         end
     end
@@ -10541,17 +9687,19 @@ local function CollectZombiesForTargeting()
     local slim = zombiesFolder:FindFirstChild("Slim")
     collect(agent)
     collect(slim)
-    if #list == 0 then
+    if _targetZombiesBufLen == 0 then
         collect(zombiesFolder)
     end
-    return list
+    return _targetZombiesBuf, _targetZombiesBufLen
 end
 
 local function FindNearestAgentParts(pos, maxRange, n)
     if not pos then return {} end
     n = n or 1
     local list = {}
-    for _, z in ipairs(CollectZombiesForTargeting()) do
+    local buf, bufLen = CollectZombiesForTargeting()
+    for i = 1, bufLen do
+        local z = buf[i]
         local part = z:FindFirstChild("HumanoidRootPart") or z:FindFirstChildWhichIsA("BasePart")
         if part then
             local ok, d = pcall(function() return (part.Position - pos).Magnitude end)
@@ -10572,9 +9720,10 @@ local function GetZombiesInComboRange(originPos, radius, maxTargets)
     if not originPos then return {} end
     radius = radius or ComboStunRange
     maxTargets = maxTargets or ComboStunMaxTargets
-    local zombies = CollectZombiesForTargeting()
+    local buf, bufLen = CollectZombiesForTargeting()
     local list = {}
-    for _, z in ipairs(zombies) do
+    for i = 1, bufLen do
+        local z = buf[i]
         local hrp = z:FindFirstChild("HumanoidRootPart") or z:FindFirstChildWhichIsA("BasePart")
         if hrp then
             local d = (hrp.Position - originPos).Magnitude
@@ -12212,8 +11361,8 @@ do -- // Players Tab
             InfectInner = espFrame and espFrame:FindFirstChild("InfectOuter") and espFrame.InfectOuter:FindFirstChild("InfectInner") or nil,
             InfectLabelInside = espFrame and espFrame:FindFirstChild("InfectOuter") and espFrame.InfectOuter:FindFirstChild("InfectLabelInside") or nil,
             DistanceLabel = distanceLabel,
-            StatusBg = espFrame and espFrame:FindFirstChild("StatusBg") or nil,
-            StatusLabel = espFrame and espFrame:FindFirstChild("StatusBg") and espFrame.StatusBg:FindFirstChild("Status") or nil,
+            StatusBg = statusBg,
+            StatusLabel = statusLabel,
             NotifState = nil,
             LastNotify = 0,
             CurrentStudsOffset = HEALTH_BILLBOARD_OFFSET,
