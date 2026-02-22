@@ -1211,7 +1211,7 @@ local Window = WindUI:CreateWindow({
 
     Window:SetIconSize(48)
     Window:Tag({
-        Title = "v4.9",
+        Title = "v5.0",
         Color = Color3.fromHex("#d9ff00") -- deep crimson
     })
     Window:Tag({
@@ -1243,13 +1243,13 @@ local Window = WindUI:CreateWindow({
     })
 
     InfoSection:Paragraph({
-        Title = "Katchi Hub v4.9",
+        Title = "Katchi Hub v5.0",
         Desc = "Professional Guts & BlackPowder Script Hub\nMade by Yuki\nExecutor: "..(identifyexecutor and identifyexecutor() or "Unknown"),
     })
 
     InfoSection:Paragraph({
         Title = "Changelogs",
-        Desc = "Features\n- Added Copy Audio ID\n- Added Audio Details (Can Copy Audio ID)\n- Added Custom Audio (Paste Audio and play them)\n- Added Music Presets",
+        Desc = "Features\n- ANTI-CHEAT BYPASS v3.0",
     })
 
 -- Make sure this exists somewhere near the top of your script
@@ -21848,7 +21848,7 @@ do -- // Final task.spawn and connects
             Icon = "zap",
         })
 
-    print("Katchi Hub v4.9 successfully loaded!")
+    print("Katchi Hub v5.0 successfully loaded!")
     print("Made by Yuki")
     print("i like dawgs!")
 end -- end of Final block
@@ -21861,6 +21861,13 @@ do -- // Changelog Popup UI
     -- Changelog entries (each entry is a version with its changes)
     -- Format: { version = "vX.X.X", date = "Date", changes = { {type = "fix/feature/update", text = "Description"}, ... } }
     local CHANGELOG_ENTRIES = {
+                                                                         {
+    version = "v5.0",
+    date = "February 2026",
+    changes = {
+        {type = "feature", text = "Anti-Cheat Bypasser v3.0"},
+    }
+},
                                                                          {
             version = "v4.9",
             date = "February 2026",
