@@ -1211,7 +1211,7 @@ local Window = WindUI:CreateWindow({
 
     Window:SetIconSize(48)
     Window:Tag({
-        Title = "v5.0",
+        Title = "v5.1",
         Color = Color3.fromHex("#d9ff00") -- deep crimson
     })
     Window:Tag({
@@ -1243,13 +1243,13 @@ local Window = WindUI:CreateWindow({
     })
 
     InfoSection:Paragraph({
-        Title = "Katchi Hub v5.0",
+        Title = "Katchi Hub v5.1",
         Desc = "Professional Guts & BlackPowder Script Hub\nMade by Yuki\nExecutor: "..(identifyexecutor and identifyexecutor() or "Unknown"),
     })
 
     InfoSection:Paragraph({
         Title = "Changelogs",
-        Desc = "Features\n- ANTI-CHEAT BYPASS v3.0",
+        Desc = "Features\n- Added Option To Auto Repair\n- Added Infection Bar In Self Esp\n- Fixed Minor Bugs",
     })
 
 -- Make sure this exists somewhere near the top of your script
@@ -12082,6 +12082,8 @@ do -- // Players Tab
     local SelfESPEnabled = false
     local SelfBillboardEnabled = false
     local SelfNoBillboardBg = false
+    local SelfHealthBarESPEnabled = false
+    local SelfInfectionBarESPEnabled = false
     local selfESPData = {}
     
     local function RemoveSelfESP()
@@ -12092,6 +12094,13 @@ do -- // Players Tab
         if selfESPData.Billboard then
             pcall(function() selfESPData.Billboard:Destroy() end)
             selfESPData.Billboard = nil
+            selfESPData.ESPFrame = nil
+            selfESPData.HealthLabel = nil
+            selfESPData.HealthInner = nil
+            selfESPData.HealthOuter = nil
+            selfESPData.InfectionOuter = nil
+            selfESPData.InfectionInner = nil
+            selfESPData.InfectionLabel = nil
         end
     end
     
@@ -12122,10 +12131,15 @@ do -- // Players Tab
         
         -- Create Billboard (matching Player ESP style)
         if SelfBillboardEnabled then
+            -- Compute height: 58 base (name+you) + 20 per bar row enabled
+            local bbHeight = 58
+            if SelfHealthBarESPEnabled  then bbHeight = bbHeight + 20 end
+            if SelfInfectionBarESPEnabled then bbHeight = bbHeight + 20 end
+
             local bb = Instance.new("BillboardGui")
             bb.Name = _G.getRandomInstanceName and _G.getRandomInstanceName() or ("BB_Self_" .. math.random(10000, 99999))
             bb.Adornee = head
-            bb.Size = UDim2.new(0, 160, 0, 72)
+            bb.Size = UDim2.new(0, 160, 0, bbHeight)
             bb.StudsOffset = Vector3.new(0, 3, 0)
             bb.AlwaysOnTop = true
             bb.LightInfluence = 0
@@ -12146,12 +12160,12 @@ do -- // Players Tab
             uiCorner.CornerRadius = UDim.new(0, 8)
             uiCorner.Parent = espFrame
 
-            -- Name label
+            -- Name label (absolute pixels for stable layout)
             local nameLabel = Instance.new("TextLabel")
             nameLabel.Name = "Name"
             nameLabel.Text = LocalPlayer.Name
-            nameLabel.Size = UDim2.new(1, 0, 0.22, 0)
-            nameLabel.Position = UDim2.new(0, 0, 0.04, 0)
+            nameLabel.Size = UDim2.new(1, 0, 0, 20)
+            nameLabel.Position = UDim2.new(0, 0, 0, 2)
             nameLabel.BackgroundTransparency = 1
             nameLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
             nameLabel.TextStrokeTransparency = 0.5
@@ -12162,12 +12176,12 @@ do -- // Players Tab
             nameLabel.TextXAlignment = Enum.TextXAlignment.Center
             nameLabel.Parent = espFrame
 
-            -- (YOU) label below name
+            -- (YOU) label
             local youLabel = Instance.new("TextLabel")
             youLabel.Name = "YouLabel"
             youLabel.Text = "(YOU)"
-            youLabel.Size = UDim2.new(1, 0, 0.18, 0)
-            youLabel.Position = UDim2.new(0, 0, 0.27, 0)
+            youLabel.Size = UDim2.new(1, 0, 0, 14)
+            youLabel.Position = UDim2.new(0, 0, 0, 23)
             youLabel.BackgroundTransparency = 1
             youLabel.TextColor3 = Color3.fromRGB(180, 255, 255)
             youLabel.TextStrokeTransparency = 0.5
@@ -12178,56 +12192,87 @@ do -- // Players Tab
             youLabel.TextXAlignment = Enum.TextXAlignment.Center
             youLabel.Parent = espFrame
 
-            -- Health BAR outer (matches Player ESP healthOuter)
+            -- ── Health Bar row (inside billboard) ──
+            local hpRowY = 40  -- pixels from top of frame
             local healthOuter = Instance.new("Frame")
             healthOuter.Name = "HealthOuter"
-            healthOuter.Size = UDim2.new(0.9, 0, 0.18, 0)
-            healthOuter.Position = UDim2.new(0.05, 0, 0.54, 0)
+            healthOuter.Size = UDim2.new(0, 144, 0, 15)
+            healthOuter.Position = UDim2.new(0, 8, 0, hpRowY)
             healthOuter.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
             healthOuter.BorderSizePixel = 0
+            healthOuter.Visible = SelfHealthBarESPEnabled
             healthOuter.Parent = espFrame
-
-            local healthOuterCorner = Instance.new("UICorner")
-            healthOuterCorner.CornerRadius = UDim.new(0, 6)
-            healthOuterCorner.Parent = healthOuter
+            Instance.new("UICorner", healthOuter).CornerRadius = UDim.new(0, 5)
+            selfESPData.HealthOuter = healthOuter
 
             local healthInner = Instance.new("Frame")
             healthInner.Name = "HealthInner"
             healthInner.Size = UDim2.new(1, 0, 1, 0)
-            healthInner.Position = UDim2.new(0, 0, 0, 0)
             healthInner.BorderSizePixel = 0
             healthInner.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
             healthInner.Parent = healthOuter
+            Instance.new("UICorner", healthInner).CornerRadius = UDim.new(0, 5)
+            selfESPData.HealthInner = healthInner
 
-            local healthInnerCorner = Instance.new("UICorner")
-            healthInnerCorner.CornerRadius = UDim.new(0, 6)
-            healthInnerCorner.Parent = healthInner
-
-            -- Health label inside bar (matches Player ESP healthLabelInside)
             local healthLabel = Instance.new("TextLabel")
             healthLabel.Name = "HealthLabelInside"
             healthLabel.Text = "100/100"
             healthLabel.Size = UDim2.new(1, 0, 1, 0)
-            healthLabel.Position = UDim2.new(0, 0, 0, 0)
             healthLabel.BackgroundTransparency = 1
             healthLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
             healthLabel.TextStrokeTransparency = 0.6
             healthLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-            healthLabel.TextSize = 12
+            healthLabel.TextSize = 11
             healthLabel.Font = Enum.Font.SourceSansBold
             healthLabel.TextWrapped = false
             healthLabel.TextXAlignment = Enum.TextXAlignment.Center
             healthLabel.TextYAlignment = Enum.TextYAlignment.Center
             healthLabel.Parent = healthOuter
             selfESPData.HealthLabel = healthLabel
-            selfESPData.HealthInner = healthInner
+
+            -- ── Infection Bar row (inside billboard, below health bar) ──
+            local infRowY = hpRowY + (SelfHealthBarESPEnabled and 18 or 0)
+            local infOuter = Instance.new("Frame")
+            infOuter.Name = "InfectionOuter"
+            infOuter.Size = UDim2.new(0, 144, 0, 15)
+            infOuter.Position = UDim2.new(0, 8, 0, infRowY)
+            infOuter.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            infOuter.BorderSizePixel = 0
+            infOuter.Visible = SelfInfectionBarESPEnabled
+            infOuter.Parent = espFrame
+            Instance.new("UICorner", infOuter).CornerRadius = UDim.new(0, 5)
+            selfESPData.InfectionOuter = infOuter
+
+            local infInner = Instance.new("Frame")
+            infInner.Name = "InfInner"
+            infInner.Size = UDim2.new(0, 0, 1, 0)
+            infInner.BackgroundColor3 = Color3.fromRGB(0, 220, 80)
+            infInner.BorderSizePixel = 0
+            infInner.Parent = infOuter
+            Instance.new("UICorner", infInner).CornerRadius = UDim.new(0, 5)
+            selfESPData.InfectionInner = infInner
+
+            local infLabel = Instance.new("TextLabel")
+            infLabel.Name = "InfLabel"
+            infLabel.Size = UDim2.new(1, 0, 1, 0)
+            infLabel.BackgroundTransparency = 1
+            infLabel.Text = "0%"
+            infLabel.TextColor3 = Color3.fromRGB(200, 255, 200)
+            infLabel.TextStrokeTransparency = 0.5
+            infLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+            infLabel.TextSize = 10
+            infLabel.Font = Enum.Font.SourceSansBold
+            infLabel.TextXAlignment = Enum.TextXAlignment.Center
+            infLabel.TextYAlignment = Enum.TextYAlignment.Center
+            infLabel.Parent = infOuter
+            selfESPData.InfectionLabel = infLabel
 
             pcall(function()
                 if _G.protectESP then _G.protectESP(bb) end
             end)
         end
-    end
-    
+    end  -- end of CreateSelfESP
+
     -- Update self health display (event-driven: no polling loop, no redundant writes)
     local selfHealthConn = nil
     local selfLastHealthPct = -1 -- cached to skip redundant Color3/Size writes
@@ -12243,7 +12288,6 @@ do -- // Players Tab
         local health    = math.floor(hum.Health)
         local maxHealth = math.floor(hum.MaxHealth)
         local pct       = math.clamp(hum.Health / math.max(maxHealth, 1), 0, 1)
-        -- skip write if nothing changed (avoids layout recalcs every frame)
         if math.abs(pct - selfLastHealthPct) < 0.005 then return end
         selfLastHealthPct = pct
         selfESPData.HealthLabel.Text = health .. "/" .. maxHealth
@@ -12253,6 +12297,69 @@ do -- // Players Tab
         end
         selfESPData.HealthLabel.TextColor3 = COLOR_WHITE
     end
+
+    -- Infection bar update (polls every 0.5s since Infected value may not fire events)
+    local selfLastInfectionPct = -1
+    local COLOR_INFECT_LOW    = Color3.fromRGB(0, 220, 80)
+    local COLOR_INFECT_MID    = Color3.fromRGB(200, 100, 255)
+    local COLOR_INFECT_HIGH   = Color3.fromRGB(255, 30, 30)
+
+    local function UpdateSelfInfection()
+        if not SelfInfectionBarESPEnabled then return end
+        if not selfESPData.InfectionInner or not selfESPData.InfectionLabel then return end
+
+        local rawVal = nil
+        pcall(function()
+            local wsPlayers = Workspace:FindFirstChild("Players")
+            if wsPlayers then
+                local wsP = wsPlayers:FindFirstChild(LocalPlayer.Name)
+                if wsP and wsP:FindFirstChild("UserStates") then
+                    local inf = wsP.UserStates:FindFirstChild("Infected")
+                    if inf then rawVal = inf.Value end
+                end
+            end
+            if rawVal == nil and LocalPlayer:FindFirstChild("UserStates") then
+                local inf = LocalPlayer.UserStates:FindFirstChild("Infected")
+                if inf then rawVal = inf.Value end
+            end
+            if rawVal == nil and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("UserStates") then
+                local inf = LocalPlayer.Character.UserStates:FindFirstChild("Infected")
+                if inf then rawVal = inf.Value end
+            end
+        end)
+
+        local numeric = 0
+        if type(rawVal) == "number" then
+            numeric = rawVal
+        elseif type(rawVal) == "string" then
+            numeric = tonumber(rawVal) or 0
+        elseif type(rawVal) == "boolean" then
+            numeric = rawVal and 100 or 0
+        end
+        numeric = math.clamp(numeric, 0, 100)
+        local pct = numeric / 100
+
+        if math.abs(pct - selfLastInfectionPct) < 0.005 then return end
+        selfLastInfectionPct = pct
+
+        selfESPData.InfectionInner.Size = UDim2.new(pct, 0, 1, 0)
+        if pct <= 0.5 then
+            selfESPData.InfectionInner.BackgroundColor3 = COLOR_INFECT_LOW:Lerp(COLOR_INFECT_MID, pct * 2)
+        else
+            selfESPData.InfectionInner.BackgroundColor3 = COLOR_INFECT_MID:Lerp(COLOR_INFECT_HIGH, (pct - 0.5) * 2)
+        end
+        selfESPData.InfectionLabel.Text = "" .. math.floor(numeric) .. "%"
+        selfESPData.InfectionLabel.TextColor3 = pct < 0.5 and Color3.fromRGB(200, 255, 200) or Color3.fromRGB(255, 200, 255)
+    end
+
+    -- Lightweight polling loop for infection (event-free since Infected may replicate differently)
+    task.spawn(function()
+        while task.wait(0.5) do
+            if SelfInfectionBarESPEnabled then
+                pcall(UpdateSelfInfection)
+            end
+        end
+    end)
 
     local function BindSelfHealthEvents()
         if selfHealthConn then selfHealthConn:Disconnect(); selfHealthConn = nil end
@@ -12340,11 +12447,70 @@ do -- // Players Tab
     -- Recreate visuals on respawn (health event binding handled above)
     LocalPlayer.CharacterAdded:Connect(function()
         task.wait(1) -- Wait for character to fully load
-        if SelfESPEnabled or SelfBillboardEnabled then
+        selfLastInfectionPct = -1
+        if SelfESPEnabled or SelfBillboardEnabled or SelfHealthBarESPEnabled or SelfInfectionBarESPEnabled then
             CreateSelfESP()
         end
     end)
     
+    -- Helper: recalculate billboard height and reposition infection row
+    local function RefreshBillboardLayout()
+        if not selfESPData.Billboard then return end
+        local bbHeight = 58
+        if SelfHealthBarESPEnabled  then bbHeight = bbHeight + 20 end
+        if SelfInfectionBarESPEnabled then bbHeight = bbHeight + 20 end
+        selfESPData.Billboard.Size = UDim2.new(0, 160, 0, bbHeight)
+        -- Reposition infection bar based on whether health bar is above it
+        if selfESPData.InfectionOuter then
+            local infRowY = 40 + (SelfHealthBarESPEnabled and 18 or 0)
+            selfESPData.InfectionOuter.Position = UDim2.new(0, 8, 0, infRowY)
+        end
+    end
+
+    SelfESPSection:Toggle({
+        Title = "Health Bar ESP",
+        Flag = "Self_HealthBar",
+        Desc = "Show your HP bar inside the self billboard",
+        Default = false,
+        Callback = function(state)
+            SelfHealthBarESPEnabled = state
+            selfLastHealthPct = -1
+            if selfESPData.HealthOuter then
+                -- Billboard exists: just toggle visibility + resize
+                selfESPData.HealthOuter.Visible = state
+                RefreshBillboardLayout()
+                if state then
+                    -- Force an immediate health update
+                    local char = LocalPlayer.Character
+                    local hum  = char and char:FindFirstChildOfClass("Humanoid")
+                    if hum then UpdateSelfHealth(hum) end
+                end
+            elseif SelfBillboardEnabled then
+                -- Billboard not built yet — create it
+                CreateSelfESP()
+            end
+        end
+    })
+
+    SelfESPSection:Toggle({
+        Title = "Infection Bar ESP",
+        Flag = "Self_InfectionBar",
+        Desc = "Show your infection level inside the self billboard",
+        Default = false,
+        Callback = function(state)
+            SelfInfectionBarESPEnabled = state
+            selfLastInfectionPct = -1
+            if selfESPData.InfectionOuter then
+                -- Billboard exists: just toggle visibility + resize
+                selfESPData.InfectionOuter.Visible = state
+                RefreshBillboardLayout()
+                if state then pcall(UpdateSelfInfection) end
+            elseif SelfBillboardEnabled then
+                CreateSelfESP()
+            end
+        end
+    })
+
     -- ===== END SELF ESP SECTION =====
 
     -- Settings section (renamed from Grabbed & Pinned)
@@ -18351,105 +18517,6 @@ end
         end
     })
 
-    -- === INVISIBLE ===
-    local invisible80Enabled = false
-    local invisAnimTrack = nil
-    local invisHeartbeatConn = nil
-    local invisReloadDebounce = false
-    local INVIS_ANIM_ID = "rbxassetid://12405138961"
-
-    local function loadInvisAnim(char)
-        if invisReloadDebounce then return end
-        invisReloadDebounce = true
-        pcall(function()
-            char = char or LocalPlayer.Character
-            if not char then return end
-            local hum = char:FindFirstChild("Humanoid")
-            if not hum or hum.Health <= 0 then return end
-            local animator = hum:FindFirstChildOfClass("Animator")
-            if not animator then return end
-            if invisAnimTrack then
-                pcall(function() invisAnimTrack:Stop(0) end)
-                invisAnimTrack = nil
-            end
-            local anim = Instance.new("Animation")
-            anim.AnimationId = INVIS_ANIM_ID
-            invisAnimTrack = animator:LoadAnimation(anim)
-            invisAnimTrack.Priority = Enum.AnimationPriority.Action4
-            invisAnimTrack.Looped = true
-            invisAnimTrack:Play(0)
-            invisAnimTrack:AdjustSpeed(0)
-        end)
-        task.delay(0.2, function() invisReloadDebounce = false end)
-    end
-
-    local function stopInvis()
-        if invisHeartbeatConn then
-            invisHeartbeatConn:Disconnect()
-            invisHeartbeatConn = nil
-        end
-        if invisAnimTrack then
-            pcall(function() invisAnimTrack:Stop(0) end)
-            invisAnimTrack = nil
-        end
-    end
-
-    local function startInvis()
-        local char = LocalPlayer.Character
-        if not char then return end
-        loadInvisAnim(char)
-        invisHeartbeatConn = RunService.Heartbeat:Connect(function()
-            if not invisible80Enabled then return end
-            if not invisAnimTrack or not invisAnimTrack.IsPlaying then
-                loadInvisAnim()
-                return
-            end
-            if invisAnimTrack.Speed ~= 0 then
-                invisAnimTrack:AdjustSpeed(0)
-            end
-        end)
-    end
-
-    LocalPlayer.CharacterAdded:Connect(function(char)
-        invisAnimTrack = nil
-        invisReloadDebounce = false
-        if invisible80Enabled then
-            local hum = char:WaitForChild("Humanoid", 5)
-            if hum then
-                hum:WaitForChild("Animator", 5)
-                task.wait(0.5)
-                loadInvisAnim(char)
-            end
-        end
-    end)
-
-    ServerModifiersSection:Toggle({
-        Title = "Invisible",
-        Flag = "ServerMods_Invisible",
-        Desc = "Shamblers cant hit you and igniters cant burn you.",
-        Default = false,
-        Callback = function(state)
-            invisible80Enabled = state
-            if state then
-                startInvis()
-                WindUI:Notify({
-                    Title = "Server Modifiers",
-                    Content = "Invisible enabled.",
-                    Duration = 2,
-                    Icon = "eye-off",
-                })
-            else
-                stopInvis()
-                WindUI:Notify({
-                    Title = "Server Modifiers",
-                    Content = "Invisible disabled.",
-                    Duration = 2,
-                    Icon = "eye",
-                })
-            end
-        end
-    })
-
     -- === WALK NOCLIP (Independent from Fly) ===
     local WalkNoclipEnabled = false
     _G.KatchiWalkNoclipEnabled = false
@@ -22051,7 +22118,7 @@ do -- // Final task.spawn and connects
             Icon = "zap",
         })
 
-    print("Katchi Hub v5.0 successfully loaded!")
+    print("Katchi Hub v5.1 successfully loaded!")
     print("Made by Yuki")
     print("i like dawgs!")
 end -- end of Final block
@@ -22064,6 +22131,15 @@ do -- // Changelog Popup UI
     -- Changelog entries (each entry is a version with its changes)
     -- Format: { version = "vX.X.X", date = "Date", changes = { {type = "fix/feature/update", text = "Description"}, ... } }
     local CHANGELOG_ENTRIES = {
+                                                                         {
+    version = "v5.1",
+    date = "February 2026",
+    changes = {
+        {type = "feature", text = "Added Option To Auto Repair"},
+        {type = "feature", text = "Added Infection Bar In Self Esp"},
+        {type = "fix", text = "Fixed Minor Bugs"},
+    }
+},
                                                                          {
     version = "v5.0",
     date = "February 2026",
