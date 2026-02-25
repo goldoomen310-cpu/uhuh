@@ -17329,7 +17329,7 @@ end
     local antiBreakLegsEnabled = false
     local antiBreakLegsConn = nil
     local antiBreakLegsHeartbeatConn = nil
-    local ANTI_BREAK_LEGS_FALL_SPEED = -25 -- Fall speed threshold to activate climbing state
+    local ANTI_BREAK_LEGS_FALL_SPEED = -15 -- Fall speed threshold to activate climbing state
 
     local function disconnectAntiBreakLegs()
         if antiBreakLegsConn then
